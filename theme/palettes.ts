@@ -34,7 +34,9 @@ export type Palette = {
   okInk: string;
   okOn: string;
 
-  // Status badges
+  // Status badges (semantic — always the same color regardless of accent palette)
+  newBg: string;
+  newFg: string;
   delayedBg: string;
   delayedFg: string;
 
@@ -56,6 +58,8 @@ const surfaces = {
   okSoft: '#c8dcb8',
   okInk: '#1d3318',
   okOn: '#ffffff',
+  newBg: '#cfe2ee',
+  newFg: '#1d3a4f',
   delayedBg: '#f6e3d4',
   delayedFg: '#6e3a13',
   canvas: '#d9d0b8',

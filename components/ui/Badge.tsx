@@ -20,8 +20,8 @@ export function Badge({ children, variant = 'default', status, style }: BadgePro
   let borderColor: string = t.colors.rule;
 
   if (status === FLIGHT_STATUS.NEW) {
-    bg = t.colors.accentSoft;
-    fg = t.colors.accentInk;
+    bg = t.colors.newBg;
+    fg = t.colors.newFg;
     borderColor = 'transparent';
   } else if (status === FLIGHT_STATUS.ONGOING) {
     bg = t.colors.ok;
