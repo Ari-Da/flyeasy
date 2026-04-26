@@ -44,3 +44,7 @@ app-example
 
 # design source archive (extracted contents are in _design/)
 Flyeasy.zip
+
+# personal/local notes
+*.local.md
+NOTES.local.md
