@@ -128,6 +128,17 @@ export async function fetchFlight(id: string): Promise<Flight | null> {
   return dbFlightToFlight(data as DbFlight);
 }
 
+export async function fetchDbFlight(id: string): Promise<DbFlight | null> {
+  const { data, error } = await supabase
+    .from('flights')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data as DbFlight) ?? null;
+}
+
 export async function fetchNextUpcomingFlight(): Promise<Flight | null> {
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase

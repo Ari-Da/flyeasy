@@ -24,5 +24,5 @@ export const FEATURE_FLAGS = {
    * `false` — show empty states. There is no DB backing for people/connections/chats
    *           yet; setting this to `false` exercises the empty-state UX.
    */
-  useMockPeople: false,
+  useMockPeople: true,
 } as const;
