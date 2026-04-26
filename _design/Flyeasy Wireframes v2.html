@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" class="fe-v2 theme-green">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flyeasy v2 — Color schemes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="wireframe-v2-styles.css?v=3" />
+<style>
+  body.fe-v2-body {
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+    box-sizing: border-box;
+  }
+  .v2-page {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: flex; flex-direction: column; gap: 36px;
+  }
+  .v2-head {
+    text-align: center;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .v2-head h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 42px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.02em;
+    color: #1f2420;
+  }
+  .v2-head p {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    color: #4a4f48;
+    max-width: 600px;
+    font-size: 14px;
+  }
+  .v2-section {
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .v2-section-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid #c8c2ad;
+    padding-bottom: 8px;
+  }
+  .v2-section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .v2-section-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8d83;
+  }
+  .v2-themes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .v2-theme {
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .v2-theme-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 999px;
+    align-self: flex-start;
+  }
+  .v2-theme-head .name {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .v2-theme-head .swatches { display: inline-flex; gap: 4px; }
+  .v2-theme-head .sw { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12); }
+  .v2-row {
+    display: flex; gap: 18px; flex-wrap: wrap;
+  }
+  .v2-frame {
+    display: flex; flex-direction: column; gap: 6px; align-items: center;
+  }
+  .v2-frame-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4a4f48;
+    font-weight: 600;
+  }
+  .v2-divider {
+    height: 1px; background: #c8c2ad;
+    margin: 12px 0;
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="screens-v2.jsx"></script>
+</head>
+<body class="fe-v2-body">
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+// Two themed columns rendered side-by-side using scoped class wrappers
+function ThemeBlock({ theme, children }) {
+  const blueStyles = {
+    '--accent': '#6fa3c7',
+    '--accent-soft': '#cfe2ee',
+    '--accent-ink': '#1d3a4f',
+    '--accent-on': '#ffffff',
+    '--ok': '#5a8a4d',
+    '--ok-soft': '#c8dcb8',
+    '--ok-ink': '#1d3318',
+    '--ok-on': '#ffffff',
+  };
+  const styles = blueStyles;
+  const swatches = ['#6fa3c7','#cfe2ee','#5a8a4d','#f5f1e8'];
+  const name = 'Baby blue · sage accents';
+
+  return (
+    <div className="v2-theme" style={styles}>
+      <div className="v2-theme-head">
+        <span className="name">{name}</span>
+        <span className="swatches">
+          {swatches.map((c, i) => <span key={i} className="sw" style={{ background: c }} />)}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Frame({ label, children }) {
+  return (
+    <div className="v2-frame">
+      {children}
+      <div className="v2-frame-label">{label}</div>
+    </div>
+  );
+}
+
+function Section({ title, sub, render }) {
+  return (
+    <section className="v2-section">
+      <div className="v2-section-head">
+        <h2 className="v2-section-title">{title}</h2>
+        <span className="v2-section-sub">{sub}</span>
+      </div>
+      <div className="v2-themes" style={{ gridTemplateColumns: '1fr' }}>
+        <ThemeBlock theme="blue">{render()}</ThemeBlock>
+      </div>
+    </section>
+  );
+}
+
+function App() {
+  return (
+    <div className="v2-page">
+      <header className="v2-head">
+        <h1>Flyeasy · v2</h1>
+        <p>Baby blue primary with sage-green semantic accents reserved for "Verified" and trust messaging — keeps green from dominating.</p>
+      </header>
+
+      <Section title="01 · Get started" sub="Splash · Sign up · Log in" render={() => (
+        <div className="v2-row">
+          <Frame label="Splash"><V2Splash /></Frame>
+          <Frame label="Sign up"><V2SignUp /></Frame>
+          <Frame label="Log in"><V2LogIn /></Frame>
+        </div>
+      )} />
+
+      <Section title="02 · Find people" sub="Vertical cards · detail · empty" render={() => (
+        <div className="v2-row">
+          <Frame label="Find People"><V2FindPeople /></Frame>
+          <Frame label="User detail"><V2UserDetail /></Frame>
+          <Frame label="Empty · no matches"><V2EmptyMatches /></Frame>
+        </div>
+      )} />
+
+      <Section title="03 · My Flights" sub="List · timeline · add · detail · empty" render={() => (
+        <div className="v2-row">
+          <Frame label="A · Detail rows"><V2MyFlights /></Frame>
+          <Frame label="B · Timeline"><V2MyFlightsTimeline /></Frame>
+          <Frame label="Add flight"><V2AddFlight /></Frame>
+          <Frame label="Flight detail"><V2FlightDetail /></Frame>
+          <Frame label="Empty · no flights"><V2EmptyFlights /></Frame>
+        </div>
+      )} />
+
+      <Section title="04 · Connections & chat" sub="Requests · connected · inbox · thread" render={() => (
+        <div className="v2-row">
+          <Frame label="Requests"><V2Requests /></Frame>
+          <Frame label="Connected"><V2Connections /></Frame>
+          <Frame label="Chat inbox"><V2ChatList /></Frame>
+          <Frame label="Chat thread"><V2ChatThread /></Frame>
+        </div>
+      )} />
+
+      <Section title="05 · Profile" sub="Self profile · availability · bio" render={() => (
+        <div className="v2-row">
+          <Frame label="Profile"><V2Profile /></Frame>
+        </div>
+      )} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="200" fill="#d9d0b8"/>
+    <rect x="55" y="40" width="40" height="120" rx="9" fill="#f5f1e8" stroke="#1f2420" stroke-width="1.5"/>
+    <rect x="105" y="40" width="40" height="120" rx="9" fill="#f5f1e8" stroke="#1f2420" stroke-width="1.5"/>
+    <circle cx="75" cy="80" r="9" fill="#5a8a4d"/>
+    <circle cx="125" cy="80" r="9" fill="#4a5560"/>
+    <rect x="63" y="100" width="24" height="3" rx="1.5" fill="#1f2420"/>
+    <rect x="113" y="100" width="24" height="3" rx="1.5" fill="#1f2420"/>
+  </svg>
+</template>
+</body>
+</html>

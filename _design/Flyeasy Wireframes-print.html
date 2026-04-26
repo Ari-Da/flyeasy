@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Flyeasy — Low-fi Wireframes (Print)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Kalam:wght@400;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="wireframe-styles.css" />
+<style>
+  @page { size: landscape; margin: 0.4in; }
+  html, body {
+    background: #fff !important;
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-root {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+    font-family: 'Kalam', 'Caveat', cursive;
+  }
+  .print-head {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+  }
+  .print-head h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 38px;
+    margin: 0;
+    line-height: 1;
+  }
+  .print-head .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #555;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .print-section {
+    break-before: page;
+    page-break-before: always;
+    padding-top: 8px;
+  }
+  .print-section:first-of-type {
+    break-before: auto;
+    page-break-before: auto;
+  }
+  .print-section-title {
+    font-family: 'Caveat', cursive;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .print-section-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .print-grid {
+    display: grid;
+    gap: 22px 18px;
+    justify-content: center;
+    justify-items: center;
+  }
+  .print-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .print-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .print-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .print-frame {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .print-frame-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+    margin-top: 2px;
+  }
+  /* Scale phones down for print */
+  .print-scale-small {
+    transform: scale(0.72);
+    transform-origin: top center;
+    margin-bottom: -180px; /* pull next element up to account for scale */
+  }
+  .print-scale-tiny {
+    transform: scale(0.58);
+    transform-origin: top center;
+    margin-bottom: -285px;
+  }
+  .fe-annot { display: none !important; } /* hide annotations in print to save space */
+
+  .print-cover {
+    min-height: 80vh;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center;
+    gap: 18px;
+  }
+  .print-cover h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 72px;
+    margin: 0;
+  }
+  .print-cover .lede {
+    font-family: 'Kalam', cursive;
+    font-size: 20px;
+    color: #333;
+    max-width: 520px;
+    line-height: 1.4;
+  }
+  .print-cover .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .print-cover .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: oklch(0.82 0.14 85);
+    border: 1.5px solid #1a1a1a;
+  }
+  .footer {
+    margin-top: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-align: right;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="wireframe-primitives.jsx"></script>
+<script type="text/babel" src="screens-1.jsx"></script>
+<script type="text/babel" src="screens-2.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+// Set ctx so sketchy mode renders
+window.__fe_ctx = { sketchy: true, annotate: false };
+
+function Frame({ label, children }) {
+  return (
+    <div className="print-frame">
+      <div className="print-scale-small">{children}</div>
+      <div className="print-frame-label">{label}</div>
+    </div>
+  );
+}
+
+function FrameTiny({ label, children }) {
+  return (
+    <div className="print-frame">
+      <div className="print-scale-tiny">{children}</div>
+      <div className="print-frame-label">{label}</div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <div className="print-root">
+      {/* Cover */}
+      <div className="print-cover">
+        <div className="dot" />
+        <h1>Flyeasy</h1>
+        <div className="lede">Low-fidelity mobile wireframes.<br/>Phase 1 — connect people flying together.</div>
+        <div className="meta">V1 · Mobile · 23 screens</div>
+      </div>
+
+      {/* Section 1 */}
+      <div className="print-section">
+        <div className="print-head">
+          <div>
+            <div className="print-section-title">01 · Get started</div>
+            <div className="print-section-sub">Splash · Sign up · Log in</div>
+          </div>
+          <div className="sub">Flyeasy</div>
+        </div>
+        <div className="print-grid cols-3">
+          <Frame label="Splash"><ScreenSplash /></Frame>
+          <Frame label="Sign up"><ScreenSignUp /></Frame>
+          <Frame label="Log in"><ScreenLogIn /></Frame>
+        </div>
+      </div>
+
+      {/* Section 2 */}
+      <div className="print-section">
+        <div className="print-head">
+          <div>
+            <div className="print-section-title">02 · Home / Find people</div>
+            <div className="print-section-sub">2 layout options · user detail · empty state</div>
+          </div>
+          <div className="sub">Flyeasy</div>
+        </div>
+        <div className="print-grid cols-4">
+          <FrameTiny label="A · Vertical cards"><ScreenFindPeople /></FrameTiny>
+          <FrameTiny label="B · 2-col grid"><ScreenFindPeopleGrid /></FrameTiny>
+          <FrameTiny label="User detail"><ScreenUserDetail /></FrameTiny>
+          <FrameTiny label="Empty · no matches"><ScreenEmptyMatches /></FrameTiny>
+        </div>
+      </div>
+
+      {/* Section 3 */}
+      <div className="print-section">
+        <div className="print-head">
+          <div>
+            <div className="print-section-title">03 · My Flights</div>
+            <div className="print-section-sub">2 layout options · add · detail · empty</div>
+          </div>
+          <div className="sub">Flyeasy</div>
+        </div>
+        <div className="print-grid cols-5">
+          <FrameTiny label="A · Detail rows"><ScreenMyFlights /></FrameTiny>
+          <FrameTiny label="B · Timeline"><ScreenMyFlightsTimeline /></FrameTiny>
+          <FrameTiny label="Add flight"><ScreenAddFlight /></FrameTiny>
+          <FrameTiny label="Flight detail"><ScreenFlightDetail /></FrameTiny>
+          <FrameTiny label="Empty · no flights"><ScreenEmptyFlights /></FrameTiny>
+        </div>
+      </div>
+
+      {/* Section 4 */}
+      <div className="print-section">
+        <div className="print-head">
+          <div>
+            <div className="print-section-title">04 · Connections & chat</div>
+            <div className="print-section-sub">Requests · connected · inbox · thread</div>
+          </div>
+          <div className="sub">Flyeasy</div>
+        </div>
+        <div className="print-grid cols-4">
+          <FrameTiny label="Requests"><ScreenRequests /></FrameTiny>
+          <FrameTiny label="My connections"><ScreenConnections /></FrameTiny>
+          <FrameTiny label="Chat inbox"><ScreenChatList /></FrameTiny>
+          <FrameTiny label="Chat thread"><ScreenChatThread /></FrameTiny>
+        </div>
+      </div>
+
+      {/* Section 5 */}
+      <div className="print-section">
+        <div className="print-head">
+          <div>
+            <div className="print-section-title">05 · Profile</div>
+            <div className="print-section-sub">Self profile · availability · bio</div>
+          </div>
+          <div className="sub">Flyeasy</div>
+        </div>
+        <div className="print-grid cols-3">
+          <Frame label="Profile (self)"><ScreenProfile /></Frame>
+        </div>
+        <div className="footer">End · 5 sections · 20 screens</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+// Auto-print after fonts + render settle
+(async () => {
+  try { await document.fonts.ready; } catch (e) {}
+  await new Promise(r => setTimeout(r, 800));
+  window.print();
+})();
+</script>
+</body>
+</html>
