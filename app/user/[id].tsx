@@ -12,14 +12,16 @@ import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { Verified } from '@/components/ui/Verified';
 import { getFlight, getPerson } from '@/data/mock';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
 
 export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
   const [requested, setRequested] = useState(false);
 
-  const person = id ? getPerson(id) : undefined;
-  const flight = person ? getFlight(person.flightId) : undefined;
+  const useMocks = FEATURE_FLAGS.useMockPeople;
+  const person = useMocks && id ? getPerson(id) : undefined;
+  const flight = useMocks && person ? getFlight(person.flightId) : undefined;
 
   if (!person || !flight) {
     return (

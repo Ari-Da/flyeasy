@@ -1,3 +1,5 @@
+import 'react-native-url-polyfill/auto';
+
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -47,6 +49,26 @@ function FontGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ThemedStack() {
+  const t = useTheme();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: t.colors.paper },
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(app)" />
+      <Stack.Screen name="user/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="flight/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="flight/add" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="chat/[id]" options={{ presentation: 'card' }} />
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -55,20 +77,7 @@ export default function RootLayout() {
           <FontGate>
             <AuthProvider>
               <StatusBar style="dark" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: '#f5f1e8' },
-                }}
-              >
-                <Stack.Screen name="index" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(app)" />
-                <Stack.Screen name="user/[id]" options={{ presentation: 'card' }} />
-                <Stack.Screen name="flight/[id]" options={{ presentation: 'card' }} />
-                <Stack.Screen name="flight/add" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="chat/[id]" options={{ presentation: 'card' }} />
-              </Stack>
+              <ThemedStack />
             </AuthProvider>
           </FontGate>
         </ThemeProvider>

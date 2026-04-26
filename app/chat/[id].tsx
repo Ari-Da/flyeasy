@@ -16,17 +16,19 @@ import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { ChatBubble } from '@/components/ChatBubble';
 import { CHAT_MESSAGES, getConnection, getFlight, getPerson, type ChatMessage } from '@/data/mock';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
 
 export default function ChatThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
 
-  const connection = id ? getConnection(id) : undefined;
-  const person = connection ? getPerson(connection.personId) : undefined;
-  const flight = connection ? getFlight(connection.flightId) : undefined;
+  const useMocks = FEATURE_FLAGS.useMockPeople;
+  const connection = useMocks && id ? getConnection(id) : undefined;
+  const person = useMocks && connection ? getPerson(connection.personId) : undefined;
+  const flight = useMocks && connection ? getFlight(connection.flightId) : undefined;
 
   const [messages, setMessages] = useState<ChatMessage[]>(
-    () => (id ? (CHAT_MESSAGES[id] ?? []) : []),
+    () => (useMocks && id ? (CHAT_MESSAGES[id] ?? []) : []),
   );
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<ScrollView>(null);

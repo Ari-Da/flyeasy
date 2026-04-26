@@ -34,6 +34,9 @@ export function Avatar({ initials, size = 44, variant = 'default', style }: Avat
           fontFamily: t.fontFamily.uiSemibold,
           color: isSoft ? t.colors.accentInk : t.colors.inkSoft,
           fontSize: size * 0.36,
+          lineHeight: size * 0.42,
+          includeFontPadding: false,
+          textAlignVertical: 'center',
         }}
       >
         {initials}

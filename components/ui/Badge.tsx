@@ -1,6 +1,6 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
-import type { FlightStatus } from '@/data/mock';
+import { FLIGHT_STATUS, type FlightStatus } from '@/lib/flights';
 import { Text } from './Text';
 
 type Variant = 'default' | 'accent' | 'solid' | 'ok';
@@ -19,19 +19,19 @@ export function Badge({ children, variant = 'default', status, style }: BadgePro
   let fg = t.colors.inkSoft;
   let borderColor: string = t.colors.rule;
 
-  if (status === 'new') {
+  if (status === FLIGHT_STATUS.NEW) {
     bg = t.colors.accentSoft;
     fg = t.colors.accentInk;
     borderColor = 'transparent';
-  } else if (status === 'ongoing') {
+  } else if (status === FLIGHT_STATUS.ONGOING) {
     bg = t.colors.ok;
     fg = '#fff';
     borderColor = 'transparent';
-  } else if (status === 'delayed') {
+  } else if (status === FLIGHT_STATUS.DELAYED) {
     bg = t.colors.delayedBg;
     fg = t.colors.delayedFg;
     borderColor = 'transparent';
-  } else if (status === 'complete') {
+  } else if (status === FLIGHT_STATUS.COMPLETE) {
     bg = t.colors.paper2;
     fg = t.colors.inkMute;
     borderColor = t.colors.rule;

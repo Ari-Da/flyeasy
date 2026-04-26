@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,16 +10,66 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
-import { FLIGHTS } from '@/data/mock';
-import { PALETTES, useTheme, useThemeControls, type PaletteName } from '@/theme';
+import { FLIGHTS, type Flight } from '@/data/mock';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import { fetchUserFlights, FLIGHT_STATUS } from '@/lib/flights';
+import {
+  BACKGROUND_PALETTES,
+  PALETTES,
+  useTheme,
+  useThemeControls,
+  type BackgroundName,
+  type PaletteName,
+} from '@/theme';
 
 export default function ProfileScreen() {
   const t = useTheme();
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { paletteName, setPalette } = useThemeControls();
+  const { paletteName, setPalette, backgroundName, setBackground } = useThemeControls();
 
   const [available, setAvailable] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
+  const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (FEATURE_FLAGS.useMockFlights) {
+        setFlights(FLIGHTS);
+        return;
+      }
+      let active = true;
+      fetchUserFlights()
+        .then((rows) => {
+          if (active) setFlights(rows);
+        })
+        .catch(() => {
+          if (active) setFlights([]);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          setSigningOut(true);
+          try {
+            await signOut();
+          } catch (e) {
+            Alert.alert('Sign out failed', e instanceof Error ? e.message : 'Please try again.');
+            setSigningOut(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const initials = session
     ? `${session.firstName[0] ?? ''}${session.lastName[0] ?? ''}`.toUpperCase()
@@ -27,14 +77,16 @@ export default function ProfileScreen() {
   const displayName = session ? `${session.firstName} ${session.lastName}` : 'Riya Tanaka';
   const email = session?.email ?? 'riya@email.com';
 
-  const upcoming = FLIGHTS.filter((f) => f.status === 'new' || f.status === 'delayed').length;
-  const past = FLIGHTS.filter((f) => f.status === 'complete').length;
+  const upcoming = flights.filter(
+    (f) => f.status === FLIGHT_STATUS.NEW || f.status === FLIGHT_STATUS.DELAYED,
+  ).length;
+  const past = flights.filter((f) => f.status === FLIGHT_STATUS.COMPLETE).length;
 
   return (
     <Screen scroll>
       <TopBar title="Profile" rightLabel="Edit" onRightPress={() => {}} />
 
-      <View style={{ alignItems: 'center', gap: 8 }}>
+      <View style={{ alignItems: 'center', gap: 8, marginTop: -8 }}>
         <Avatar size={80} initials={initials} />
         <Pressable hitSlop={6}>
           <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
@@ -116,6 +168,45 @@ export default function ProfileScreen() {
                     backgroundColor: palette.accent,
                   }}
                 />
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={{ gap: 6 }}>
+        <Text variant="section" tone="mute">
+          Background
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {(Object.keys(BACKGROUND_PALETTES) as BackgroundName[]).map((name) => {
+            const bg = BACKGROUND_PALETTES[name];
+            const active = name === backgroundName;
+            return (
+              <Pressable
+                key={name}
+                onPress={() => setBackground(name)}
+                style={{
+                  flex: 1,
+                  borderWidth: 1.5,
+                  borderColor: active ? t.colors.ink : t.colors.rule,
+                  borderRadius: t.radius.lg,
+                  padding: 10,
+                  gap: 6,
+                  alignItems: 'center',
+                  backgroundColor: t.colors.paper,
+                }}
+              >
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: bg.paper,
+                    borderWidth: 1,
+                    borderColor: t.colors.rule,
+                  }}
+                />
                 <Text variant="body" weight={active ? 'semibold' : 'regular'} style={{ textTransform: 'capitalize' }}>
                   {name}
                 </Text>
@@ -126,7 +217,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={{ marginTop: 8 }}>
-        <Button kind="ghost" full onPress={signOut}>
+        <Button kind="ghost" full loading={signingOut} onPress={handleSignOut} textColor="#c83e2e">
           Sign out
         </Button>
       </View>

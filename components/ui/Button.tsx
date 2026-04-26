@@ -15,6 +15,8 @@ export type ButtonProps = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   leftIcon?: React.ReactNode;
+  /** Override the computed text + spinner color. */
+  textColor?: string;
 };
 
 export function Button({
@@ -27,6 +29,7 @@ export function Button({
   disabled,
   style,
   leftIcon,
+  textColor,
 }: ButtonProps) {
   const t = useTheme();
 
@@ -63,11 +66,12 @@ export function Button({
   };
 
   const fgColor =
-    kind === 'primary'
+    textColor ??
+    (kind === 'primary'
       ? t.colors.accentOn
       : kind === 'link'
         ? t.colors.accentInk
-        : t.colors.ink;
+        : t.colors.ink);
 
   return (
     <Pressable

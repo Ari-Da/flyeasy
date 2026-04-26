@@ -5,7 +5,8 @@
  * When the API exists, each `getX()` helper becomes an `await fetch(...)`.
  */
 
-export type FlightStatus = 'new' | 'ongoing' | 'delayed' | 'complete';
+export type { FlightStatus } from '@/lib/flights';
+import type { FlightStatus } from '@/lib/flights';
 
 export type Flight = {
   id: string;

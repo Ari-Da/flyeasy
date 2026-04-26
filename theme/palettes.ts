@@ -76,11 +76,32 @@ export const PALETTES = {
     accentInk: '#1d3318',
     accentOn: '#ffffff',
   },
+  orange: {
+    ...surfaces,
+    accent: '#d97a4a',
+    accentSoft: '#f4d8c5',
+    accentInk: '#5a2912',
+    accentOn: '#ffffff',
+  },
+  pink: {
+    ...surfaces,
+    accent: '#c97090',
+    accentSoft: '#f0d4dd',
+    accentInk: '#4d1f30',
+    accentOn: '#ffffff',
+  },
+  purple: {
+    ...surfaces,
+    accent: '#8c6bb1',
+    accentSoft: '#ddcfee',
+    accentInk: '#2e1a4a',
+    accentOn: '#ffffff',
+  },
   slate: {
     ...surfaces,
-    accent: '#4a5560',
-    accentSoft: '#c8cdd4',
-    accentInk: '#1a1f25',
+    accent: '#7a8590',
+    accentSoft: '#d8dde2',
+    accentInk: '#2a3035',
     accentOn: '#ffffff',
   },
 } as const satisfies Record<string, Palette>;
@@ -88,3 +109,44 @@ export const PALETTES = {
 export type PaletteName = keyof typeof PALETTES;
 
 export const DEFAULT_PALETTE: PaletteName = 'blue';
+
+/**
+ * Background palettes — override the surface tokens (paper / paper2 / paper3, ink shades,
+ * rule colors, canvas) on top of an accent palette. Semantic colors (ok*, delayed*) and
+ * the accent itself are untouched.
+ */
+export type BackgroundPalette = Pick<
+  Palette,
+  'paper' | 'paper2' | 'paper3' | 'ink' | 'inkSoft' | 'inkMute' | 'rule' | 'ruleSoft' | 'line' | 'canvas'
+>;
+
+export const BACKGROUND_PALETTES = {
+  warm: {
+    paper: '#f5f1e8',
+    paper2: '#ebe6d7',
+    paper3: '#e0d9c4',
+    ink: '#1f2420',
+    inkSoft: '#4a4f48',
+    inkMute: '#8a8d83',
+    rule: '#c8c2ad',
+    ruleSoft: '#d8d2bd',
+    line: '#2a2f28',
+    canvas: '#d9d0b8',
+  },
+  white: {
+    paper: '#ffffff',
+    paper2: '#f6f6f4',
+    paper3: '#ececea',
+    ink: '#1a1a1a',
+    inkSoft: '#555555',
+    inkMute: '#8e8e8e',
+    rule: '#e2e2e2',
+    ruleSoft: '#eeeeee',
+    line: '#222222',
+    canvas: '#e8e8e8',
+  },
+} as const satisfies Record<string, BackgroundPalette>;
+
+export type BackgroundName = keyof typeof BACKGROUND_PALETTES;
+
+export const DEFAULT_BACKGROUND: BackgroundName = 'warm';

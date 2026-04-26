@@ -1,14 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session as SupabaseSession, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-
-/**
- * Mock auth. Stores a single "session" object in AsyncStorage.
- * Replace `signIn` / `signUp` bodies with real API calls when the backend lands.
- */
-
-const STORAGE_KEY = 'flyeasy.session.v1';
-
-const FAKE_LATENCY_MS = 600;
+import { supabase } from '@/lib/supabase';
 
 export type Session = {
   id: string;
@@ -27,68 +19,80 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+function toSession(user: User | null | undefined, supaSession: SupabaseSession | null | undefined): Session | null {
+  if (!user || !supaSession) return null;
+  const meta = (user.user_metadata ?? {}) as { firstName?: string; lastName?: string };
+  return {
+    id: user.id,
+    firstName: meta.firstName ?? '',
+    lastName: meta.lastName ?? '',
+    email: user.email ?? '',
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setSession(JSON.parse(raw));
-      } catch {
-        // ignore — first run or storage unavailable
-      } finally {
-        setLoading(false);
-      }
-    })();
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(toSession(data.session?.user, data.session));
+      setLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, supaSession) => {
+      setSession(toSession(supaSession?.user, supaSession));
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const persist = async (next: Session | null) => {
-    setSession(next);
-    if (next) {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    }
-  };
-
   const signIn: AuthContextValue['signIn'] = async (email, password) => {
-    await sleep(FAKE_LATENCY_MS);
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-    const next: Session = {
-      id: 'me',
-      firstName: 'Riya',
-      lastName: 'Tanaka',
-      email,
-    };
-    await persist(next);
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+
+    const next = toSession(data.user, data.session);
+    if (!next) throw new Error('Sign-in returned no session.');
     return next;
   };
 
   const signUp: AuthContextValue['signUp'] = async ({ firstName, lastName, email, password }) => {
-    await sleep(FAKE_LATENCY_MS);
     if (!firstName.trim() || !lastName.trim()) throw new Error('Please enter your full name.');
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-    const next: Session = {
-      id: 'me',
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
+
+    const { data, error } = await supabase.auth.signUp({
       email,
-    };
-    await persist(next);
+      password,
+      options: {
+        data: { firstName: firstName.trim(), lastName: lastName.trim() },
+      },
+    });
+    if (error) throw new Error(error.message);
+
+    const next = toSession(data.user, data.session);
+    if (!next) {
+      throw new Error(
+        'Account created — check your email to confirm before signing in.',
+      );
+    }
     return next;
   };
 
   const signOut = async () => {
-    await sleep(200);
-    await persist(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
   };
 
   return (

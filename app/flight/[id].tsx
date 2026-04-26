@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -9,14 +10,45 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { Verified } from '@/components/ui/Verified';
-import { getFlight, peopleOnFlight } from '@/data/mock';
+import { getFlight, peopleOnFlight, type Flight } from '@/data/mock';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import { fetchFlight } from '@/lib/flights';
 import { useTheme } from '@/theme';
 
 export default function FlightDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
-  const flight = id ? getFlight(id) : undefined;
+
+  const [flight, setFlight] = useState<Flight | null | undefined>(
+    FEATURE_FLAGS.useMockFlights && id ? (getFlight(id) ?? null) : undefined,
+  );
+
+  useEffect(() => {
+    if (FEATURE_FLAGS.useMockFlights || !id) return;
+    let active = true;
+    fetchFlight(id)
+      .then((f) => {
+        if (active) setFlight(f);
+      })
+      .catch(() => {
+        if (active) setFlight(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (flight === undefined) {
+    return (
+      <Screen contentStyle={{ flex: 1 }}>
+        <TopBar back />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.colors.accent} />
+        </View>
+      </Screen>
+    );
+  }
 
   if (!flight) {
     return (
@@ -27,7 +59,7 @@ export default function FlightDetailScreen() {
     );
   }
 
-  const people = peopleOnFlight(flight.id);
+  const people = FEATURE_FLAGS.useMockPeople ? peopleOnFlight(flight.id) : [];
   const previewCount = Math.min(4, people.length);
   const remaining = people.length - previewCount;
 

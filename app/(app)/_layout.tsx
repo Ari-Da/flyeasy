@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from 'expo-router';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme';
@@ -84,22 +85,25 @@ export default function AppTabsLayout() {
 
 function TabIcon({ name, focused, color }: { name: IconName; focused: boolean; color: string }) {
   const t = useTheme();
+  const ICON_SIZE = 20;
+  const PAD = 6;
+  const BOX = ICON_SIZE + PAD * 2;
   return (
-    <Ionicons
-      name={name}
-      size={focused ? 18 : 20}
-      color={focused ? t.colors.accentOn : color}
-      style={
-        focused
-          ? {
-              backgroundColor: t.colors.accent,
-              paddingHorizontal: 10,
-              paddingVertical: 3,
-              borderRadius: 999,
-              overflow: 'hidden',
-            }
-          : undefined
-      }
-    />
+    <View
+      style={{
+        width: BOX,
+        height: BOX,
+        borderRadius: BOX / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: focused ? t.colors.accent : 'transparent',
+      }}
+    >
+      <Ionicons
+        name={name}
+        size={ICON_SIZE}
+        color={focused ? t.colors.accentOn : color}
+      />
+    </View>
   );
 }
