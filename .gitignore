@@ -48,3 +48,7 @@ Flyeasy.zip
 # personal/local notes
 *.local.md
 NOTES.local.md
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json
