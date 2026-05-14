@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
@@ -8,12 +8,15 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
+import { VerifyBanner } from '@/components/ui/VerifyBanner';
 
 export default function LogInScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const params = useLocalSearchParams<{ email?: string; justSignedUp?: string }>();
+  const justSignedUp = params.justSignedUp === '1';
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +44,13 @@ export default function LogInScreen() {
       >
         <TopBar back title="Log in" />
         <Text variant="h2">Welcome back</Text>
+
+        {justSignedUp && (
+          <VerifyBanner icon="mail-outline" tone="info">
+            <Text style={{ fontWeight: '600' }}>Almost there.</Text> Check your inbox to confirm your email
+            {params.email ? ` (${params.email})` : ''}, then log in.
+          </VerifyBanner>
+        )}
 
         <View style={{ gap: 10, marginTop: 8 }}>
           <Input

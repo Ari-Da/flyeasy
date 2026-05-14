@@ -16,7 +16,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<Session>;
-  signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<Session>;
+  signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileUpdate) => Promise<Session>;
 };
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -85,14 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) throw new Error(error.message);
-
-    const next = toSession(data.user, data.session);
-    if (!next) {
-      throw new Error(
-        'Account created — check your email to confirm before signing in.',
-      );
-    }
-    return next;
   };
 
   const signOut = async () => {

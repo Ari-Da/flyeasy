@@ -30,7 +30,10 @@ export default function SignUpScreen() {
     setSubmitting(true);
     try {
       await signUp({ firstName, lastName, email, password });
-      router.replace('/(app)/find');
+      router.replace({
+        pathname: '/(auth)/log-in',
+        params: { email: email.trim(), justSignedUp: '1' },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
