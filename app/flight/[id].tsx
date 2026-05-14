@@ -133,7 +133,7 @@ export default function FlightDetailScreen() {
       <View style={{ flex: 1 }} />
 
       <Button kind="primary" size="lg" full onPress={() => router.push('/(app)/find')}>
-        Find people on this flight
+        Find travelers on this flight
       </Button>
     </Screen>
   );

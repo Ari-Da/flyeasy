@@ -58,7 +58,7 @@ export default function FindScreen() {
   if (loading) {
     return (
       <Screen contentStyle={{ flex: 1 }}>
-        <TopBar title="Find People" rightIcon="search" />
+        <TopBar title="Find Travelers" rightIcon="search" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={t.colors.accent} />
         </View>
@@ -69,7 +69,7 @@ export default function FindScreen() {
   if (error) {
     return (
       <Screen contentStyle={{ flex: 1 }}>
-        <TopBar title="Find People" rightIcon="search" />
+        <TopBar title="Find Travelers" rightIcon="search" />
         <EmptyState icon="warning-outline" title="Couldn't load" body={error}>
           <Button kind="primary" size="lg" onPress={load}>Try again</Button>
         </EmptyState>
@@ -80,7 +80,7 @@ export default function FindScreen() {
   if (!flight) {
     return (
       <Screen contentStyle={{ flex: 1 }}>
-        <TopBar title="Find People" rightIcon="search" />
+        <TopBar title="Find Travelers" rightIcon="search" />
         <EmptyState
           icon="airplane-outline"
           title="No upcoming flight"
@@ -104,7 +104,7 @@ export default function FindScreen() {
       contentStyle={showEmpty ? { flex: 1 } : undefined}
     >
       <TopBar
-        title="Find People"
+        title="Find Travelers"
         rightIcon="search"
         subtitle={
           <View style={{ flexDirection: 'row', gap: 4 }}>

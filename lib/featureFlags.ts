@@ -11,14 +11,14 @@
 export const FEATURE_FLAGS = {
   /**
    * `true`  — flight-related screens (flights tab, flight detail, profile counts,
-   *           Find People header) read from `data/mock.ts`.
+   *           Find Travelers header) read from `data/mock.ts`.
    * `false` — read from Supabase. Empty list / "no flights" state when the user
    *           has nothing in the DB.
    */
   useMockFlights: false,
 
   /**
-   * `true`  — people-related screens (Find People list, Connections requests/list,
+   * `true`  — people-related screens (Find Travelers list, Connections requests/list,
    *           Chat list, chat thread, user profile, flight-detail people preview)
    *           read from `data/mock.ts`.
    * `false` — show empty states. There is no DB backing for people/connections/chats

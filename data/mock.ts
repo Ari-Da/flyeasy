@@ -340,7 +340,7 @@ export function getRequestPerson(req: ConnectionRequest): Person | undefined {
 }
 
 /**
- * Active flight context — what flight is currently the "Find People" anchor.
+ * Active flight context — what flight is currently the "Find Travelers" anchor.
  * In real app this would be derived from selected flight in state.
  */
 export const ACTIVE_FLIGHT_ID = 'aa204';
