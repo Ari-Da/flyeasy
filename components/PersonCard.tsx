@@ -27,25 +27,9 @@ export function PersonCard({
       <Card>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <Avatar size={44} initials={person.initials} />
-          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-              <Text variant="h3">{person.name}</Text>
-              {person.verified && <Verified />}
-            </View>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Text variant="mono" weight="bold" tone="soft">
-                {flight.code}
-              </Text>
-              <Text variant="mono" tone="soft">
-                ·
-              </Text>
-              <Text variant="mono" tone="soft">
-                {flight.from} → {flight.to}
-              </Text>
-              <Text variant="mono" tone="mute">
-                · {flight.time}
-              </Text>
-            </View>
+          <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+            <Text variant="h3">{person.name}</Text>
+            {person.verified && <Verified />}
           </View>
         </View>
 
@@ -85,7 +69,7 @@ export function PersonCard({
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Ionicons name="add" size={14} color={t.colors.accentOn} />
+              <Ionicons name="person-add" size={14} color={t.colors.accentOn} />
               <Text style={{ fontSize: t.fontSize.small, fontFamily: t.fontFamily.uiSemibold, color: t.colors.accentOn }}>
                 Connect
               </Text>

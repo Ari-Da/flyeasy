@@ -137,6 +137,7 @@ export default function AddFlightScreen() {
         pnr: pnr.trim() || null,
         verified: true,
         raw_response: picked.raw,
+        flight_message: session.description ?? '',
       });
       if (insertErr) {
         if (insertErr.code === '23505') {

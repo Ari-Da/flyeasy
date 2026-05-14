@@ -25,6 +25,7 @@ export type Flight = {
   duration: string; // "7h 10m"
   status: FlightStatus;
   bookingRef?: string;
+  flightMessage?: string;
 };
 
 export type Person = {

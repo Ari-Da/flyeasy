@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
 import type { Flight } from '@/data/mock';
+import { supabase } from '@/lib/supabase';
 
 export const FLIGHT_STATUS = {
   NEW: 'new',
@@ -41,6 +41,7 @@ export type DbFlight = {
   pnr: string | null;
   verified: boolean;
   raw_response: unknown;
+  flight_message: string;
   created_at: string;
   updated_at: string;
 };
@@ -102,6 +103,7 @@ export function dbFlightToFlight(row: DbFlight, now: Date = new Date()): Flight 
     duration: formatDuration(row.scheduled_departure_utc, row.scheduled_arrival_utc),
     status: computeStatus(row, now),
     bookingRef: row.pnr ?? undefined,
+    flightMessage: row.flight_message ?? '',
   };
 }
 
@@ -142,7 +144,59 @@ export async function fetchNextUpcomingFlight(): Promise<Flight | null> {
   return dbFlightToFlight(data[0] as DbFlight);
 }
 
+export async function fetchUpcomingFlights(): Promise<Flight[]> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('flights')
+    .select('*')
+    .gt('scheduled_arrival_utc', nowIso)
+    .order('scheduled_departure_utc', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  const now = new Date();
+  return (data as DbFlight[]).map((row) => dbFlightToFlight(row, now));
+}
+
 export async function deleteFlight(id: string): Promise<void> {
   const { error } = await supabase.from('flights').delete().eq('id', id);
   if (error) throw new Error(error.message);
+}
+
+export async function updateFlightMessage(id: string, message: string): Promise<void> {
+  const { error } = await supabase
+    .from('flights')
+    .update({ flight_message: message })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export type Traveler = {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  description: string;
+  flightMessage: string;
+  matchedFlightId: string;
+};
+
+export async function fetchTravelersOnFlight(flightId: string): Promise<Traveler[]> {
+  const { data, error } = await supabase.rpc('find_travelers_on_flight', {
+    flight_id_param: flightId,
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    description: string;
+    flight_message: string;
+    matched_flight_id: string;
+  }>).map((row) => ({
+    userId: row.user_id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    description: row.description,
+    flightMessage: row.flight_message,
+    matchedFlightId: row.matched_flight_id,
+  }));
 }

@@ -48,8 +48,11 @@ export default function ConnectionsScreen() {
     { value: 'connected', label: `Connected · ${acceptedConnections.length}` },
   ] as const;
 
+  const hasContent =
+    tab === 'requests' ? pendingRequests.length > 0 : acceptedConnections.length > 0;
+
   return (
-    <Screen scroll>
+    <Screen scroll={hasContent} contentStyle={hasContent ? undefined : { flex: 1 }}>
       <TopBar title="Connections" />
 
       <View style={{ alignItems: 'flex-start' }}>

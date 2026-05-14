@@ -8,9 +8,10 @@ export type Session = {
   lastName: string;
   email: string;
   description: string;
+  availableToConnect: boolean;
 };
 
-export type ProfileUpdate = Partial<Pick<Session, 'firstName' | 'lastName' | 'description'>>;
+export type ProfileUpdate = Partial<Pick<Session, 'firstName' | 'lastName' | 'description' | 'availableToConnect'>>;
 
 type AuthContextValue = {
   session: Session | null;
@@ -25,15 +26,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-function toSession(user: User | null | undefined, supaSession: SupabaseSession | null | undefined): Session | null {
+async function loadSession(
+  user: User | null | undefined,
+  supaSession: SupabaseSession | null | undefined,
+): Promise<Session | null> {
   if (!user || !supaSession) return null;
-  const meta = (user.user_metadata ?? {}) as { firstName?: string; lastName?: string; description?: string };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('first_name, last_name, description, available_to_connect')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const meta = (user.user_metadata ?? {}) as { firstName?: string; lastName?: string };
+
   return {
     id: user.id,
-    firstName: meta.firstName ?? '',
-    lastName: meta.lastName ?? '',
     email: user.email ?? '',
-    description: meta.description ?? '',
+    firstName: profile?.first_name ?? meta.firstName ?? '',
+    lastName: profile?.last_name ?? meta.lastName ?? '',
+    description: profile?.description ?? '',
+    availableToConnect: profile?.available_to_connect ?? true,
   };
 }
 
@@ -44,14 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const next = await loadSession(data.session?.user, data.session);
       if (!mounted) return;
-      setSession(toSession(data.session?.user, data.session));
+      setSession(next);
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, supaSession) => {
-      setSession(toSession(supaSession?.user, supaSession));
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, supaSession) => {
+      const next = await loadSession(supaSession?.user, supaSession);
+      if (!mounted) return;
+      setSession(next);
     });
 
     return () => {
@@ -67,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
 
-    const next = toSession(data.user, data.session);
+    const next = await loadSession(data.user, data.session);
     if (!next) throw new Error('Sign-in returned no session.');
     return next;
   };
@@ -97,10 +113,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supaSession = current.session;
     if (!supaSession) throw new Error('Not signed in.');
 
-    const { data, error } = await supabase.auth.updateUser({ data: input });
-    if (error) throw new Error(error.message);
+    const dbInput: Record<string, unknown> = {};
+    if ('firstName' in input) dbInput.first_name = input.firstName;
+    if ('lastName' in input) dbInput.last_name = input.lastName;
+    if ('description' in input) dbInput.description = input.description;
+    if ('availableToConnect' in input) dbInput.available_to_connect = input.availableToConnect;
 
-    const next = toSession(data.user, supaSession);
+    if (Object.keys(dbInput).length > 0) {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(dbInput)
+        .eq('id', supaSession.user.id);
+      if (updateError) throw new Error(updateError.message);
+    }
+
+    const next = await loadSession(supaSession.user, supaSession);
     if (!next) throw new Error('Profile update returned no user.');
     setSession(next);
     return next;

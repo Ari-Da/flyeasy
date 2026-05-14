@@ -1,7 +1,3 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +17,10 @@ import {
   type BackgroundName,
   type PaletteName,
 } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 
 export default function ProfileScreen() {
   const t = useTheme();
@@ -28,17 +28,66 @@ export default function ProfileScreen() {
   const { session, signOut, updateProfile } = useAuth();
   const { paletteName, setPalette, backgroundName, setBackground } = useThemeControls();
 
-  const [available, setAvailable] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
 
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState(session?.description ?? '');
   const [savingBio, setSavingBio] = useState(false);
+  const [togglingAvailable, setTogglingAvailable] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+
+  const [editingName, setEditingName] = useState(false);
+  const [firstDraft, setFirstDraft] = useState(session?.firstName ?? '');
+  const [lastDraft, setLastDraft] = useState(session?.lastName ?? '');
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (!editingBio) setBioDraft(session?.description ?? '');
   }, [editingBio, session?.description]);
+
+  useEffect(() => {
+    if (!editingName) {
+      setFirstDraft(session?.firstName ?? '');
+      setLastDraft(session?.lastName ?? '');
+    }
+  }, [editingName, session?.firstName, session?.lastName]);
+
+  const cancelName = () => {
+    setFirstDraft(session?.firstName ?? '');
+    setLastDraft(session?.lastName ?? '');
+    setEditingName(false);
+  };
+
+  const saveName = async () => {
+    const fn = firstDraft.trim();
+    const ln = lastDraft.trim();
+    if (!fn || !ln) {
+      Alert.alert('Missing name', 'Please enter both first and last name.');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateProfile({ firstName: fn, lastName: ln });
+      setEditingName(false);
+    } catch (e) {
+      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const onAvailableChange = async (next: boolean) => {
+    if (togglingAvailable) return;
+    setTogglingAvailable(true);
+    try {
+      await updateProfile({ availableToConnect: next });
+    } catch (e) {
+      Alert.alert('Could not update', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setTogglingAvailable(false);
+    }
+  };
 
   const cancelBio = () => {
     setBioDraft(session?.description ?? '');
@@ -109,7 +158,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen scroll>
-      <TopBar title="Profile" rightLabel="Edit" onRightPress={() => {}} />
+      <TopBar title="Profile" />
 
       <View style={{ alignItems: 'center', gap: 8, marginTop: -8 }}>
         <Avatar size={80} initials={initials} />
@@ -118,7 +167,63 @@ export default function ProfileScreen() {
             Change photo
           </Text>
         </Pressable>
-        <Text variant="h2">{displayName}</Text>
+        {editingName ? (
+          <View style={{ alignSelf: 'stretch', gap: 10 }}>
+            <TextInput
+              value={firstDraft}
+              onChangeText={setFirstDraft}
+              placeholder="First name"
+              placeholderTextColor={t.colors.inkMute}
+              autoCapitalize="words"
+              maxLength={50}
+              autoFocus
+              style={{
+                color: t.colors.ink,
+                fontFamily: t.fontFamily.ui,
+                fontSize: t.fontSize.body,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: t.colors.rule,
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.md,
+              }}
+            />
+            <TextInput
+              value={lastDraft}
+              onChangeText={setLastDraft}
+              placeholder="Last name"
+              placeholderTextColor={t.colors.inkMute}
+              autoCapitalize="words"
+              maxLength={50}
+              style={{
+                color: t.colors.ink,
+                fontFamily: t.fontFamily.ui,
+                fontSize: t.fontSize.body,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: t.colors.rule,
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.md,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+              <Button kind="ghost" onPress={cancelName}>
+                Cancel
+              </Button>
+              <Button kind="primary" loading={savingName} onPress={saveName}>
+                Save
+              </Button>
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 24 }} />
+            <Text variant="h2">{displayName}</Text>
+            <Pressable onPress={() => setEditingName(true)} hitSlop={8} style={{ marginLeft: 8 }}>
+              <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
+            </Pressable>
+          </View>
+        )}
         <Text variant="mono" tone="mute">
           {email}
         </Text>
@@ -132,7 +237,7 @@ export default function ProfileScreen() {
               Others on your flights can send you requests.
             </Text>
           </View>
-          <Toggle value={available} onChange={setAvailable} />
+          <Toggle value={session?.availableToConnect ?? true} onChange={onAvailableChange} />
         </View>
       </Card>
 
@@ -217,6 +322,30 @@ export default function ProfileScreen() {
         </Card>
       </Pressable>
 
+      <View>
+        <Button kind="ghost" full loading={signingOut} onPress={handleSignOut} textColor="#c83e2e">
+          Sign out
+        </Button>
+      </View>
+
+      <View style={{ height: 1, backgroundColor: t.colors.rule, marginVertical: 8 }} />
+
+      <Pressable
+        onPress={() => setAppearanceOpen((v) => !v)}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+      >
+        <Text variant="section" tone="mute">
+          Appearance
+        </Text>
+        <Ionicons
+          name={appearanceOpen ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={t.colors.inkMute}
+        />
+      </Pressable>
+
+      {appearanceOpen && (
+        <>
       <View style={{ gap: 6 }}>
         <Text variant="section" tone="mute">
           Theme
@@ -295,12 +424,8 @@ export default function ProfileScreen() {
           })}
         </View>
       </View>
-
-      <View style={{ marginTop: 8 }}>
-        <Button kind="ghost" full loading={signingOut} onPress={handleSignOut} textColor="#c83e2e">
-          Sign out
-        </Button>
-      </View>
+        </>
+      )}
     </Screen>
   );
 }

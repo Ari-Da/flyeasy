@@ -1,50 +1,84 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { useTheme } from '@/theme';
+import { PersonCard } from '@/components/PersonCard';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { PersonCard } from '@/components/PersonCard';
-import { ACTIVE_FLIGHT_ID, getFlight, peopleOnFlight, type Flight } from '@/data/mock';
+import { ACTIVE_FLIGHT_ID, FLIGHTS, getFlight, peopleOnFlight, type Flight, type Person } from '@/data/mock';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
-import { fetchNextUpcomingFlight } from '@/lib/flights';
-
-type Filter = 'same' | 'nearby';
+import { fetchTravelersOnFlight, fetchUpcomingFlights, type Traveler } from '@/lib/flights';
+import { useTheme } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 export default function FindScreen() {
   const t = useTheme();
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>('same');
-  const [requested, setRequested] = useState<Set<string>>(new Set(['dev']));
-  const [flight, setFlight] = useState<Flight | null>(null);
+  const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
+  const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
+  const [travelers, setTravelers] = useState<Traveler[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTravelers, setLoadingTravelers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadTravelers = useCallback(async (flightId: string) => {
+    if (FEATURE_FLAGS.useMockPeople) {
+      setTravelers([]);
+      return;
+    }
+    setLoadingTravelers(true);
+    try {
+      const rows = await fetchTravelersOnFlight(flightId);
+      setTravelers(rows);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load travelers.');
+    } finally {
+      setLoadingTravelers(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
     try {
+      let flights: Flight[];
       if (FEATURE_FLAGS.useMockFlights) {
-        setFlight(getFlight(ACTIVE_FLIGHT_ID) ?? null);
+        const mockFlight = getFlight(ACTIVE_FLIGHT_ID);
+        flights = mockFlight ? [mockFlight] : FLIGHTS;
       } else {
-        const next = await fetchNextUpcomingFlight();
-        setFlight(next);
+        flights = await fetchUpcomingFlights();
+      }
+      setUpcomingFlights(flights);
+
+      const nextId = flights[0]?.id ?? null;
+      setSelectedFlightId(nextId);
+      if (nextId) {
+        await loadTravelers(nextId);
+      } else {
+        setTravelers([]);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your flight.');
+      setError(e instanceof Error ? e.message : 'Could not load your flights.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadTravelers]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  const onSelectFlight = (id: string) => {
+    if (id === selectedFlightId) return;
+    setSelectedFlightId(id);
+    setTravelers([]);
+    loadTravelers(id);
+  };
 
   const toggleRequest = (id: string) => {
     setRequested((prev) => {
@@ -77,7 +111,9 @@ export default function FindScreen() {
     );
   }
 
-  if (!flight) {
+  const selectedFlight = upcomingFlights.find((f) => f.id === selectedFlightId) ?? null;
+
+  if (!selectedFlight) {
     return (
       <Screen contentStyle={{ flex: 1 }}>
         <TopBar title="Find Travelers" rightIcon="search" />
@@ -94,57 +130,83 @@ export default function FindScreen() {
     );
   }
 
-  const people = FEATURE_FLAGS.useMockPeople ? peopleOnFlight(flight.id) : [];
-  const visiblePeople = filter === 'same' ? people : [];
-  const showEmpty = visiblePeople.length === 0;
+  const people: Person[] = FEATURE_FLAGS.useMockPeople
+    ? peopleOnFlight(selectedFlight.id)
+    : travelers.map((tr) => {
+        const fullName = `${tr.firstName} ${tr.lastName}`.trim() || 'Traveler';
+        const initials = `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?';
+        return {
+          id: tr.userId,
+          name: fullName,
+          shortName: tr.firstName || fullName,
+          initials,
+          email: '',
+          description: tr.flightMessage?.trim() || tr.description || '',
+          flightId: tr.matchedFlightId,
+          verified: true,
+        };
+      });
+  const showEmpty = people.length === 0;
 
   return (
     <Screen
       scroll={!showEmpty}
       contentStyle={showEmpty ? { flex: 1 } : undefined}
     >
-      <TopBar
-        title="Find Travelers"
-        rightIcon="search"
-        subtitle={
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            <Text variant="mono" tone="mute">
-              FLIGHT ·{' '}
-            </Text>
-            <Text variant="mono" tone="default">
-              {flight.code} · {flight.from}→{flight.to} · {flight.date.replace(/\b(\w)(\w+)/, (_m, a, b) => a + b.toLowerCase())}
-            </Text>
-          </View>
-        }
-      />
+      <TopBar title="Find Travelers" rightIcon="search" />
 
-      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-        <Chip active={filter === 'same'} onPress={() => setFilter('same')}>
-          {`Same flight · ${people.length}`}
-        </Chip>
-        <Chip active={filter === 'nearby'} onPress={() => setFilter('nearby')}>
-          Nearby
-        </Chip>
-        <Chip>⇅</Chip>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 6, paddingRight: 8 }}
+        style={{ flexGrow: 0 }}
+      >
+        {upcomingFlights.map((f) => {
+          const niceDate = f.date.replace(/\b([A-Z])([A-Z]+)/g, (_, a, b) => a + b.toLowerCase());
+          return (
+            <Chip
+              key={f.id}
+              active={f.id === selectedFlightId}
+              onPress={() => onSelectFlight(f.id)}
+            >
+              {`${f.code} · ${niceDate}, ${f.time.toUpperCase()}`}
+            </Chip>
+          );
+        })}
+      </ScrollView>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text variant="mono" tone="mute">
+          {selectedFlight.from} ({selectedFlight.fromCity})
+        </Text>
+        <Ionicons
+          name="airplane"
+          size={14}
+          color={t.colors.inkMute}
+          style={{ transform: [{ rotate: '0deg' }] }}
+        />
+        <Text variant="mono" tone="mute">
+          {selectedFlight.to} ({selectedFlight.toCity})
+        </Text>
       </View>
 
-      {showEmpty ? (
+      {loadingTravelers ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.colors.accent} />
+        </View>
+      ) : showEmpty ? (
         <EmptyState
           icon="people-outline"
           title="You're first!"
-          body={
-            filter === 'nearby'
-              ? 'No nearby travelers yet. Check back closer to your departure.'
-              : `No one else on ${flight.code} has joined yet. Check back closer to your departure.`
-          }
+          body={`No one else on ${selectedFlight.code} has joined yet. Check back closer to your departure.`}
         />
       ) : (
         <View style={{ gap: 10 }}>
-          {visiblePeople.map((p) => (
+          {people.map((p) => (
             <PersonCard
               key={p.id}
               person={p}
-              flight={flight}
+              flight={selectedFlight}
               requested={requested.has(p.id)}
               onConnect={() => toggleRequest(p.id)}
             />
