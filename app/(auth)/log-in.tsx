@@ -50,7 +50,11 @@ export default function LogInScreen() {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             keyboardType="email-address"
+            textContentType="username"
+            autoComplete="email"
           />
           <Input
             label="Password"
@@ -59,6 +63,8 @@ export default function LogInScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="password"
+            autoComplete="password"
           />
         </View>
 

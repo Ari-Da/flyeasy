@@ -73,7 +73,11 @@ export default function SignUpScreen() {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             keyboardType="email-address"
+            textContentType="username"
+            autoComplete="email"
           />
           <Input
             label="Password"
@@ -82,6 +86,8 @@ export default function SignUpScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="newPassword"
+            autoComplete="new-password"
           />
         </View>
 
