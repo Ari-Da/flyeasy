@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -11,6 +12,7 @@ import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { AeroDataBoxError, lookupFlight, type FlightLookupResult } from '@/lib/aerodatabox';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/theme';
 
 type Step = 'search' | 'pick' | 'confirm';
 
@@ -18,6 +20,23 @@ function tomorrowYmd(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
+}
+
+function todayYmd(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatYmdPretty(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function formatLocal(utcIso: string, timezone: string | null): string {
@@ -50,10 +69,12 @@ function formatTime(utcIso: string, timezone: string | null): string {
 export default function AddFlightScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const t = useTheme();
 
   const [step, setStep] = useState<Step>('search');
   const [flightInput, setFlightInput] = useState('');
   const [dateInput, setDateInput] = useState(tomorrowYmd());
+  const [showCalendar, setShowCalendar] = useState(false);
   const [pnr, setPnr] = useState('');
   const [results, setResults] = useState<FlightLookupResult[]>([]);
   const [picked, setPicked] = useState<FlightLookupResult | null>(null);
@@ -169,14 +190,16 @@ export default function AddFlightScreen() {
                 onChangeText={setFlightInput}
                 autoCapitalize="characters"
               />
-              <Input
-                label="Departure date (YYYY-MM-DD)"
-                placeholder="2026-04-28"
-                value={dateInput}
-                onChangeText={setDateInput}
-                icon="calendar-outline"
-                autoCapitalize="none"
-              />
+              <Pressable onPress={() => setShowCalendar(true)}>
+                <Input
+                  label="Departure date"
+                  placeholder="Tap to pick a date"
+                  value={formatYmdPretty(dateInput)}
+                  icon="calendar-outline"
+                  editable={false}
+                  pointerEvents="none"
+                />
+              </Pressable>
               <Input
                 label="Booking ref (optional)"
                 placeholder="ABC123"
@@ -236,6 +259,51 @@ export default function AddFlightScreen() {
             </View>
           </>
         )}
+
+        <Modal
+          visible={showCalendar}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCalendar(false)}
+        >
+          <Pressable
+            onPress={() => setShowCalendar(false)}
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}
+          >
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.lg,
+                overflow: 'hidden',
+              }}
+            >
+              <Calendar
+                current={dateInput}
+                minDate={todayYmd()}
+                markedDates={{
+                  [dateInput]: { selected: true, selectedColor: t.colors.accent },
+                }}
+                onDayPress={(day) => {
+                  setDateInput(day.dateString);
+                  setShowCalendar(false);
+                }}
+                theme={{
+                  backgroundColor: t.colors.paper,
+                  calendarBackground: t.colors.paper,
+                  textSectionTitleColor: t.colors.inkMute,
+                  dayTextColor: t.colors.ink,
+                  todayTextColor: t.colors.accent,
+                  selectedDayTextColor: '#fff',
+                  selectedDayBackgroundColor: t.colors.accent,
+                  monthTextColor: t.colors.ink,
+                  arrowColor: t.colors.accent,
+                  textDisabledColor: t.colors.rule,
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {step === 'confirm' && picked && (
           <>
