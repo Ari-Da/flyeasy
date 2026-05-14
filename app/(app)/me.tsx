@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
@@ -25,12 +25,37 @@ import {
 export default function ProfileScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session, signOut, updateProfile } = useAuth();
   const { paletteName, setPalette, backgroundName, setBackground } = useThemeControls();
 
   const [available, setAvailable] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
+
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioDraft, setBioDraft] = useState(session?.description ?? '');
+  const [savingBio, setSavingBio] = useState(false);
+
+  useEffect(() => {
+    if (!editingBio) setBioDraft(session?.description ?? '');
+  }, [editingBio, session?.description]);
+
+  const cancelBio = () => {
+    setBioDraft(session?.description ?? '');
+    setEditingBio(false);
+  };
+
+  const saveBio = async () => {
+    setSavingBio(true);
+    try {
+      await updateProfile({ description: bioDraft.trim() });
+      setEditingBio(false);
+    } catch (e) {
+      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSavingBio(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -112,14 +137,69 @@ export default function ProfileScreen() {
       </Card>
 
       <View style={{ gap: 6 }}>
-        <Text variant="section" tone="mute">
-          About me
-        </Text>
-        <Card flat>
-          <Text variant="body" tone="soft">
-            Design researcher flying a lot between NYC & Tokyo. Always up to chat about books, coffee, and random
-            airport snacks.
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="section" tone="mute">
+            About me
           </Text>
+          {!editingBio && (
+            <Pressable onPress={() => setEditingBio(true)} hitSlop={6}>
+              <Ionicons
+                name={session?.description ? 'pencil' : 'add'}
+                size={16}
+                color={t.colors.inkMute}
+              />
+            </Pressable>
+          )}
+        </View>
+        <Card flat>
+          {editingBio ? (
+            <View style={{ gap: 10 }}>
+              <TextInput
+                value={bioDraft}
+                onChangeText={setBioDraft}
+                placeholder="A short bio so others know who you are…"
+                placeholderTextColor={t.colors.inkMute}
+                multiline
+                maxLength={300}
+                autoFocus
+                style={{
+                  minHeight: 80,
+                  color: t.colors.ink,
+                  fontFamily: t.fontFamily.ui,
+                  fontSize: t.fontSize.body,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: t.colors.rule,
+                  backgroundColor: t.colors.paper,
+                  borderRadius: t.radius.md,
+                  textAlignVertical: 'top',
+                }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="caption" tone="mute">
+                  {bioDraft.length}/300
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="ghost" onPress={cancelBio}>
+                    Cancel
+                  </Button>
+                  <Button kind="primary" loading={savingBio} onPress={saveBio}>
+                    Save
+                  </Button>
+                </View>
+              </View>
+            </View>
+          ) : session?.description ? (
+            <Text variant="body" tone="soft">
+              {session.description}
+            </Text>
+          ) : (
+            <Pressable onPress={() => setEditingBio(true)}>
+              <Text variant="body" tone="mute">
+                Add a short bio so others know who you are.
+              </Text>
+            </Pressable>
+          )}
         </Card>
       </View>
 

@@ -7,7 +7,10 @@ export type Session = {
   firstName: string;
   lastName: string;
   email: string;
+  description: string;
 };
+
+export type ProfileUpdate = Partial<Pick<Session, 'firstName' | 'lastName' | 'description'>>;
 
 type AuthContextValue = {
   session: Session | null;
@@ -15,6 +18,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<Session>;
   signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<Session>;
   signOut: () => Promise<void>;
+  updateProfile: (input: ProfileUpdate) => Promise<Session>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -23,12 +27,13 @@ const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 function toSession(user: User | null | undefined, supaSession: SupabaseSession | null | undefined): Session | null {
   if (!user || !supaSession) return null;
-  const meta = (user.user_metadata ?? {}) as { firstName?: string; lastName?: string };
+  const meta = (user.user_metadata ?? {}) as { firstName?: string; lastName?: string; description?: string };
   return {
     id: user.id,
     firstName: meta.firstName ?? '',
     lastName: meta.lastName ?? '',
     email: user.email ?? '',
+    description: meta.description ?? '',
   };
 }
 
@@ -95,8 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
   };
 
+  const updateProfile: AuthContextValue['updateProfile'] = async (input) => {
+    const { data: current } = await supabase.auth.getSession();
+    const supaSession = current.session;
+    if (!supaSession) throw new Error('Not signed in.');
+
+    const { data, error } = await supabase.auth.updateUser({ data: input });
+    if (error) throw new Error(error.message);
+
+    const next = toSession(data.user, supaSession);
+    if (!next) throw new Error('Profile update returned no user.');
+    setSession(next);
+    return next;
+  };
+
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
