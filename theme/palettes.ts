@@ -45,14 +45,14 @@ export type Palette = {
 };
 
 const surfaces = {
-  paper: '#f5f1e8',
-  paper2: '#ebe6d7',
-  paper3: '#e0d9c4',
+  paper: '#f8f6f0',
+  paper2: '#f0ede4',
+  paper3: '#e6e1d4',
   ink: '#1f2420',
   inkSoft: '#4a4f48',
   inkMute: '#8a8d83',
-  rule: '#c8c2ad',
-  ruleSoft: '#d8d2bd',
+  rule: '#d2cdbe',
+  ruleSoft: '#dfdbcd',
   line: '#2a2f28',
   ok: '#5a8a4d',
   okSoft: '#c8dcb8',
@@ -62,7 +62,7 @@ const surfaces = {
   newFg: '#1d3a4f',
   delayedBg: '#f6e3d4',
   delayedFg: '#6e3a13',
-  canvas: '#d9d0b8',
+  canvas: '#e1dbc9',
 } as const;
 
 export const PALETTES = {
@@ -126,16 +126,16 @@ export type BackgroundPalette = Pick<
 
 export const BACKGROUND_PALETTES = {
   warm: {
-    paper: '#f5f1e8',
-    paper2: '#ebe6d7',
-    paper3: '#e0d9c4',
+    paper: '#f8f6f0',
+    paper2: '#f0ede4',
+    paper3: '#e6e1d4',
     ink: '#1f2420',
     inkSoft: '#4a4f48',
     inkMute: '#8a8d83',
-    rule: '#c8c2ad',
-    ruleSoft: '#d8d2bd',
+    rule: '#d2cdbe',
+    ruleSoft: '#dfdbcd',
     line: '#2a2f28',
-    canvas: '#d9d0b8',
+    canvas: '#e1dbc9',
   },
   white: {
     paper: '#ffffff',
