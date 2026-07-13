@@ -33,7 +33,7 @@ export function PersonCard({
           </View>
         </View>
 
-        <Text variant="body" tone="soft">
+        <Text variant="body" tone="soft" numberOfLines={2}>
           {person.description}
         </Text>
 

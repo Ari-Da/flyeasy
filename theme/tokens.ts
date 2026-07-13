@@ -1,3 +1,8 @@
+/**
+ * Non-color design tokens — spacing, radius, typography sizes.
+ * Kept in sync with wireframe-v2-styles.css.
+ */
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -37,6 +42,10 @@ export const fontWeight = {
   bold: '700',
 } as const;
 
+/**
+ * Font family keys — actual loaded font names registered in app/_layout.tsx.
+ * On native, useFonts() loads these and they're referenced by family name.
+ */
 export const fontFamily = {
   display: 'Fraunces_600SemiBold',
   displayItalic: 'Fraunces_400Regular_Italic',
@@ -48,6 +57,9 @@ export const fontFamily = {
   monoSemibold: 'JetBrainsMono_600SemiBold',
 } as const;
 
+/**
+ * Letter spacing values mirror the design's tight display + wide caps treatment.
+ */
 export const letterSpacing = {
   displayTight: -0.5,
   caps: 0.6,

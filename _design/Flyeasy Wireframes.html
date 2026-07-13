@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flyeasy — Low-fi Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Kalam:wght@400;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="wireframe-styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="wireframe-primitives.jsx"></script>
+<script type="text/babel" src="screens-1.jsx"></script>
+<script type="text/babel" src="screens-2.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "sketchy": true,
+  "annotate": true,
+  "accentHue": 85,
+  "density": "comfy"
+}/*EDITMODE-END*/;
+
+// Use globals directly — cannot redeclare identifiers already attached to window at top-level scope
+
+const DCanvas = window.DesignCanvas;
+const DCSec = window.DCSection;
+const DCArt = window.DCArtboard;
+const TPanel = window.TweaksPanel;
+const TSec = window.TweakSection;
+const TTog = window.TweakToggle;
+const TSld = window.TweakSlider;
+const TRad = window.TweakRadio;
+
+function App() {
+  const [t, setT] = window.useTweaks(TWEAK_DEFAULTS);
+
+  // Expose ctx for primitives to read
+  React.useEffect(() => {
+    window.__fe_ctx = { sketchy: t.sketchy, annotate: t.annotate };
+    document.body.classList.toggle('fe-clean', !t.sketchy);
+    document.documentElement.style.setProperty('--accent', `oklch(0.82 0.14 ${t.accentHue})`);
+    window.dispatchEvent(new Event('fe-ctx-change'));
+  }, [t.sketchy, t.annotate, t.accentHue]);
+
+  // (ctxKey removed — Phone subscribes directly via event)
+  const ctxKey = `${t.sketchy}-${t.annotate}`;
+
+  const pad = t.density === 'compact' ? 10 : 18;
+
+  return (
+    <React.Fragment>
+      <DCanvas
+        title="Flyeasy — Low-fi mobile wireframes"
+        subtitle="Phase 1 · B&W + accent · manual flight entry (booking verified in background)"
+      >
+        <DCSec id="intro" title="01 · Get started">
+          <DCArt id="splash" label="Splash" width={340} height={720}><ScreenSplash /></DCArt>
+          <DCArt id="signup" label="Sign up" width={340} height={720}><ScreenSignUp /></DCArt>
+          <DCArt id="login" label="Log in" width={340} height={720}><ScreenLogIn /></DCArt>
+        </DCSec>
+
+        <DCSec id="home" title="02 · Home / Find people — 2 layout options">
+          <DCArt id="find-a" label="A · Vertical cards" width={360} height={780}><ScreenFindPeople /></DCArt>
+          <DCArt id="find-b" label="B · 2-col grid" width={360} height={780}><ScreenFindPeopleGrid /></DCArt>
+          <DCArt id="user-detail" label="User card detail" width={340} height={720}><ScreenUserDetail /></DCArt>
+          <DCArt id="empty-match" label="Empty · no matches" width={340} height={720}><ScreenEmptyMatches /></DCArt>
+        </DCSec>
+
+        <DCSec id="flights" title="03 · My Flights — 2 layout options + add/detail">
+          <DCArt id="flights-a" label="A · Detail rows" width={360} height={780}><ScreenMyFlights /></DCArt>
+          <DCArt id="flights-b" label="B · Timeline grouped" width={360} height={780}><ScreenMyFlightsTimeline /></DCArt>
+          <DCArt id="add-flight" label="Add flight" width={340} height={720}><ScreenAddFlight /></DCArt>
+          <DCArt id="flight-detail" label="Flight detail" width={340} height={720}><ScreenFlightDetail /></DCArt>
+          <DCArt id="empty-flights" label="Empty · no flights" width={340} height={720}><ScreenEmptyFlights /></DCArt>
+        </DCSec>
+
+        <DCSec id="connections" title="04 · Connections & chat">
+          <DCArt id="requests" label="Incoming requests" width={360} height={780}><ScreenRequests /></DCArt>
+          <DCArt id="connections" label="My connections" width={360} height={780}><ScreenConnections /></DCArt>
+          <DCArt id="chat-list" label="Chat inbox" width={360} height={780}><ScreenChatList /></DCArt>
+          <DCArt id="chat-thread" label="Chat thread" width={340} height={720}><ScreenChatThread /></DCArt>
+        </DCSec>
+
+        <DCSec id="profile" title="05 · Profile">
+          <DCArt id="profile" label="Profile (self)" width={360} height={780}><ScreenProfile /></DCArt>
+        </DCSec>
+      </DCanvas>
+
+      <TPanel title="Tweaks">
+        <TSec title="Style">
+          <TTog label="Sketchy lines"
+            value={t.sketchy}
+            onChange={v => setT({ sketchy: v })} />
+          <TTog label="Show annotations"
+            value={t.annotate}
+            onChange={v => setT({ annotate: v })} />
+        </TSec>
+        <TSec title="Accent">
+          <TSld label="Accent hue"
+            min={0} max={360} step={5}
+            value={t.accentHue}
+            onChange={v => setT({ accentHue: v })} />
+          <div style={{
+            height: 24, borderRadius: 6, border: '1px solid #333',
+            background: `oklch(0.82 0.14 ${t.accentHue})`
+          }} />
+        </TSec>
+        <TSec title="Density">
+          <TRad
+            value={t.density}
+            onChange={v => setT({ density: v })}
+            options={[
+              { value: 'compact', label: 'Compact' },
+              { value: 'comfy', label: 'Comfy' },
+            ]}
+          />
+        </TSec>
+      </TPanel>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="200" fill="#ece9dd"/>
+    <rect x="70" y="45" width="60" height="110" rx="10" fill="#fafaf7" stroke="#1a1a1a" stroke-width="2"/>
+    <circle cx="100" cy="90" r="14" fill="oklch(0.82 0.14 85)" stroke="#1a1a1a" stroke-width="1.5"/>
+    <rect x="82" y="115" width="36" height="4" rx="2" fill="#1a1a1a"/>
+    <rect x="86" y="124" width="28" height="3" rx="1.5" fill="#8a8a85"/>
+  </svg>
+</template>
+</body>
+</html>
