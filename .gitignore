@@ -52,3 +52,10 @@ NOTES.local.md
 # Claude Code local settings
 .claude/settings.local.json
 .claude/settings.json
+
+# personal/local notes
+*.local.md
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json
