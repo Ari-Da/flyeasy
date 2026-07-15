@@ -45,14 +45,20 @@ export const fontWeight = {
 /**
  * Font family keys — actual loaded font names registered in app/_layout.tsx.
  * On native, useFonts() loads these and they're referenced by family name.
+ *
+ * Brand redesign: one typeface (Bricolage Grotesque) across display + UI roles,
+ * differentiated by weight; JetBrains Mono is kept for flight codes/times.
+ * Bricolage ships no italic static instance, so `displayItalic` falls back to
+ * the regular weight. Swapping the whole app back to another family is a
+ * single edit here — every screen reads these keys via useTheme().
  */
 export const fontFamily = {
-  display: 'Fraunces_600SemiBold',
-  displayItalic: 'Fraunces_400Regular_Italic',
-  ui: 'Inter_400Regular',
-  uiMedium: 'Inter_500Medium',
-  uiSemibold: 'Inter_600SemiBold',
-  uiBold: 'Inter_700Bold',
+  display: 'BricolageGrotesque_700Bold',
+  displayItalic: 'BricolageGrotesque_400Regular',
+  ui: 'BricolageGrotesque_400Regular',
+  uiMedium: 'BricolageGrotesque_500Medium',
+  uiSemibold: 'BricolageGrotesque_600SemiBold',
+  uiBold: 'BricolageGrotesque_700Bold',
   mono: 'JetBrainsMono_400Regular',
   monoSemibold: 'JetBrainsMono_600SemiBold',
 } as const;

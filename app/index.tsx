@@ -1,10 +1,10 @@
 import { Redirect, useRouter } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_NAME } from '@/brand/brand';
 import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { Logo } from '@/components/ui/Logo';
-import { SplashIllo } from '@/components/ui/SplashIllo';
+import { Mark } from '@/components/ui/Mark';
 import { Text } from '@/components/ui/Text';
 import { useTheme } from '@/theme';
 
@@ -34,8 +34,20 @@ export default function Splash() {
           gap: 24,
         }}
       >
-        <Logo size={48} />
-        <SplashIllo width={220} />
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Text
+            style={{
+              fontFamily: t.fontFamily.uiSemibold,
+              fontSize: 40,
+              lineHeight: 44,
+              letterSpacing: -0.8,
+              color: t.colors.ink,
+            }}
+          >
+            {APP_NAME}
+          </Text>
+          <Mark size={190} />
+        </View>
         <View style={{ alignItems: 'center', gap: 8, maxWidth: 260 }}>
           <Text variant="h2" align="center">
             Fly together, even when alone.

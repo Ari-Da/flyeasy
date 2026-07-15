@@ -10,9 +10,9 @@ Mobile app that connects people on the same flight, so flying solo feels less al
 - [Supabase](https://supabase.com/) — Postgres + Auth, with Row-Level Security
 - [AeroDataBox](https://aerodatabox.com/) (via RapidAPI) — real-time flight schedule lookup
 - `@expo/vector-icons` (Ionicons)
-- `expo-font` + `@expo-google-fonts/*` (Fraunces, Inter, JetBrains Mono)
+- `expo-font` + `@expo-google-fonts/*` (Bricolage Grotesque, JetBrains Mono)
 - `@react-native-async-storage/async-storage` (session persistence)
-- `react-native-svg` (logo + splash illustration)
+- `react-native-svg` (in-app logo / mark)
 
 ## Run it
 
@@ -48,7 +48,7 @@ components/
 ├── ui/                   primitives — Button, Input, Avatar, Card, Badge,
 │                         Chip, Toggle, Checkbox, Segmented, TopBar, Screen,
 │                         Text, Verified, VerifyBanner, EmptyState,
-│                         RouteDisplay, Logo, SplashIllo
+│                         RouteDisplay, Logo, Mark
 ├── PersonCard.tsx        person on your flight (Find tab)
 ├── FlightRow.tsx         flight list row (Flights tab)
 ├── RequestRow.tsx        incoming connect request
@@ -80,6 +80,26 @@ Every color, font, and spacing value is a token, with two independent theming ax
 - **Background palette** — Warm or White (drives surfaces and ink shades)
 
 Both swap live in **Profile → Theme / Background**. The default at startup comes from `DEFAULT_PALETTE` and `DEFAULT_BACKGROUND` in `theme/palettes.ts`. Adding a new accent palette is a one-line append to `PALETTES`; TypeScript narrows it everywhere automatically.
+
+## Brand & app icons
+
+The app name, logo, and brand colors are single-sourced so a rebrand touches one place.
+
+- **`brand/brand.js`** — the source of truth for app name, bundle ids, and brand colors. `app.config.ts`, the UI components, and the asset generator all import from it. Nothing is hardcoded elsewhere.
+- **`brand_designs/`** — the design handoff: the SVG masters (`brand_designs/icons/*.svg`) plus `brand.json`. **This folder is gitignored and not pushed** — you need it locally only to *regenerate* the images. The generated PNGs themselves are committed, so a fresh clone builds fine without it.
+- **`assets/*.png`** — the icon / splash / favicon PNGs the OS needs. These are **generated**, not hand-edited; `app.config.ts` points at them (iOS light/dark/tinted, Android adaptive layers, light/dark splash).
+
+### Changing the brand
+
+The app icon and native splash must be PNG (the OS renders them before the app starts, so they can't be SVG). One command rebuilds every PNG from the SVG masters:
+
+```bash
+npm run brand:icons     # rasterizes brand_designs/icons/*.svg -> assets/*.png
+```
+
+So to change the logo: edit the SVGs in `brand_designs/icons/`, run the command, then rebuild the app. To change the name/colors, edit `brand/brand.js`. (Generation uses `@resvg/resvg-js`, a dev-only dependency — see `scripts/generate-brand-assets.mjs`.)
+
+The **in-app** logo is a live vector, not a PNG: `components/ui/Mark.tsx` (the two-plane mark) and `components/ui/Logo.tsx` (mark + wordmark). The mark's green plane defaults to the selected accent, so it recolors with **Profile → Theme**; pass `planeColor` to pin it.
 
 ## Auth
 
