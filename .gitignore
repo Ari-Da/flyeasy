@@ -45,6 +45,9 @@ app-example
 # design source archive (extracted contents are in _design/)
 Flyeasy.zip
 
+# brand design handoff sources (rasterized outputs are committed, sources are not)
+brand_designs/
+
 # personal/local notes
 *.local.md
 NOTES.local.md

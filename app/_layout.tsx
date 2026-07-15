@@ -8,15 +8,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
-  Fraunces_400Regular_Italic,
-  Fraunces_600SemiBold,
-} from '@expo-google-fonts/fraunces';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+} from '@expo-google-fonts/bricolage-grotesque';
 import {
   JetBrainsMono_400Regular,
   JetBrainsMono_600SemiBold,
@@ -28,12 +24,10 @@ import { ThemeProvider, useTheme } from '@/theme';
 function FontGate({ children }: { children: React.ReactNode }) {
   const t = useTheme();
   const [loaded] = useFonts({
-    Fraunces_600SemiBold,
-    Fraunces_400Regular_Italic,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    BricolageGrotesque_400Regular,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
     JetBrainsMono_400Regular,
     JetBrainsMono_600SemiBold,
   });

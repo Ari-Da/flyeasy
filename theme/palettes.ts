@@ -45,14 +45,14 @@ export type Palette = {
 };
 
 const surfaces = {
-  paper: '#f8f6f0',
-  paper2: '#f0ede4',
-  paper3: '#e6e1d4',
+  paper: '#f5f1e8', // brand cream — app background
+  paper2: '#efeadd',
+  paper3: '#e6dfce',
   ink: '#1f2420',
-  inkSoft: '#4a4f48',
+  inkSoft: '#4a5560', // brand slate — secondary text
   inkMute: '#8a8d83',
-  rule: '#d2cdbe',
-  ruleSoft: '#dfdbcd',
+  rule: '#e0d9c8', // brand line — borders / dividers
+  ruleSoft: '#ebe5d6',
   line: '#2a2f28',
   ok: '#5a8a4d',
   okSoft: '#c8dcb8',
@@ -112,7 +112,7 @@ export const PALETTES = {
 
 export type PaletteName = keyof typeof PALETTES;
 
-export const DEFAULT_PALETTE: PaletteName = 'blue';
+export const DEFAULT_PALETTE: PaletteName = 'green';
 
 /**
  * Background palettes — override the surface tokens (paper / paper2 / paper3, ink shades,
@@ -126,14 +126,14 @@ export type BackgroundPalette = Pick<
 
 export const BACKGROUND_PALETTES = {
   warm: {
-    paper: '#f8f6f0',
-    paper2: '#f0ede4',
-    paper3: '#e6e1d4',
+    paper: '#f5f1e8', // brand cream
+    paper2: '#efeadd',
+    paper3: '#e6dfce',
     ink: '#1f2420',
-    inkSoft: '#4a4f48',
+    inkSoft: '#4a5560', // brand slate
     inkMute: '#8a8d83',
-    rule: '#d2cdbe',
-    ruleSoft: '#dfdbcd',
+    rule: '#e0d9c8', // brand line
+    ruleSoft: '#ebe5d6',
     line: '#2a2f28',
     canvas: '#e1dbc9',
   },
