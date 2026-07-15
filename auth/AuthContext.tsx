@@ -9,6 +9,7 @@ export type Session = {
   email: string;
   description: string;
   availableToConnect: boolean;
+  avatarUrl: string;
 };
 
 export type ProfileUpdate = Partial<Pick<Session, 'firstName' | 'lastName' | 'description' | 'availableToConnect'>>;
@@ -23,6 +24,8 @@ type AuthContextValue = {
   verifyResetCode: (email: string, code: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   updateProfile: (input: ProfileUpdate) => Promise<Session>;
+  uploadAvatar: (localUri: string) => Promise<Session>;
+  removeAvatar: () => Promise<Session>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -45,7 +48,7 @@ async function loadSession(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name, last_name, description, available_to_connect')
+    .select('first_name, last_name, description, available_to_connect, avatar_url')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -58,6 +61,7 @@ async function loadSession(
     lastName: profile?.last_name ?? meta.lastName ?? '',
     description: profile?.description ?? '',
     availableToConnect: profile?.available_to_connect ?? true,
+    avatarUrl: profile?.avatar_url ?? '',
   };
 }
 
@@ -190,9 +194,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return next;
   };
 
+  // Upload a local image to the `avatars` storage bucket under the user's id and
+  // save its public URL on the profile. A cache-busting query param is appended
+  // so the new photo shows immediately despite the fixed storage path.
+  const uploadAvatar: AuthContextValue['uploadAvatar'] = async (localUri) => {
+    const { data: current } = await supabase.auth.getSession();
+    const supaSession = current.session;
+    if (!supaSession) throw new Error('Not signed in.');
+    const userId = supaSession.user.id;
+
+    // React Native can't pass a File to supabase-js; read the file into an
+    // ArrayBuffer and upload that with an explicit content type.
+    const arrayBuffer = await fetch(localUri).then((r) => r.arrayBuffer());
+    const path = `${userId}/avatar.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+    const url = `${pub.publicUrl}?v=${Date.now()}`;
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url })
+      .eq('id', userId);
+    if (updateError) throw new Error(updateError.message);
+
+    const next = await loadSession(supaSession.user, supaSession);
+    if (!next) throw new Error('Avatar update returned no user.');
+    setSession(next);
+    return next;
+  };
+
+  // Clear the profile photo: drop the stored URL (source of truth for display)
+  // and best-effort delete the file. Removing the file needs a storage delete
+  // policy; if absent the delete is ignored and the orphan is overwritten on the
+  // next upload (fixed path), so removal still succeeds either way.
+  const removeAvatar: AuthContextValue['removeAvatar'] = async () => {
+    const { data: current } = await supabase.auth.getSession();
+    const supaSession = current.session;
+    if (!supaSession) throw new Error('Not signed in.');
+    const userId = supaSession.user.id;
+
+    try {
+      await supabase.storage.from('avatars').remove([`${userId}/avatar.jpg`]);
+    } catch {
+      // best-effort — display is driven by avatar_url below
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: null })
+      .eq('id', userId);
+    if (error) throw new Error(error.message);
+
+    const next = await loadSession(supaSession.user, supaSession);
+    if (!next) throw new Error('Avatar removal returned no user.');
+    setSession(next);
+    return next;
+  };
+
   return (
     <AuthContext.Provider
-      value={{ session, loading, signIn, signUp, signOut, requestPasswordReset, verifyResetCode, updatePassword, updateProfile }}
+      value={{ session, loading, signIn, signUp, signOut, requestPasswordReset, verifyResetCode, updatePassword, updateProfile, uploadAvatar, removeAvatar }}
     >
       {children}
     </AuthContext.Provider>

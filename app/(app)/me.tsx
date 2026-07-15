@@ -20,15 +20,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 export default function ProfileScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { session, signOut, updateProfile } = useAuth();
+  const { session, signOut, updateProfile, uploadAvatar, removeAvatar } = useAuth();
   const { paletteName, setPalette, backgroundName, setBackground } = useThemeControls();
 
   const [signingOut, setSigningOut] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
 
   const [editingBio, setEditingBio] = useState(false);
@@ -145,6 +149,57 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const onChangePhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Photo access needed', 'Allow photo access to change your picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (result.canceled) return;
+
+    setUploadingPhoto(true);
+    try {
+      // Resize + compress before upload so we're not pushing multi-MB originals.
+      const rendered = await ImageManipulator.manipulate(result.assets[0].uri)
+        .resize({ width: 512 })
+        .renderAsync();
+      const image = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
+      await uploadAvatar(image.uri);
+    } catch (e) {
+      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const onRemovePhoto = () => {
+    Alert.alert('Remove photo?', 'Your profile will show your initials instead.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setRemovingPhoto(true);
+          try {
+            await removeAvatar();
+          } catch (e) {
+            Alert.alert('Could not remove', e instanceof Error ? e.message : 'Please try again.');
+          } finally {
+            setRemovingPhoto(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const photoBusy = uploadingPhoto || removingPhoto;
+
   const initials = session
     ? `${session.firstName[0] ?? ''}${session.lastName[0] ?? ''}`.toUpperCase()
     : 'RT';
@@ -161,11 +216,45 @@ export default function ProfileScreen() {
       <TopBar title="Profile" />
 
       <View style={{ alignItems: 'center', gap: 8, marginTop: -8 }}>
-        <Avatar size={80} initials={initials} />
-        <Pressable hitSlop={6}>
-          <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
-            Change photo
-          </Text>
+        <View>
+          <Avatar size={80} initials={initials} uri={session?.avatarUrl || undefined} />
+          {session?.avatarUrl && !photoBusy && (
+            <Pressable
+              onPress={onRemovePhoto}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Remove profile photo"
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: t.colors.ink,
+                borderWidth: 2,
+                borderColor: t.colors.paper,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="close" size={12} color={t.colors.paper} />
+            </Pressable>
+          )}
+        </View>
+        <Pressable hitSlop={6} onPress={onChangePhoto} disabled={photoBusy}>
+          {photoBusy ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ActivityIndicator size="small" color={t.colors.inkSoft} />
+              <Text variant="body" tone="soft">
+                {uploadingPhoto ? 'Uploading…' : 'Removing…'}
+              </Text>
+            </View>
+          ) : (
+            <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
+              {session?.avatarUrl ? 'Change photo' : 'Add photo'}
+            </Text>
+          )}
         </Pressable>
         {editingName ? (
           <View style={{ alignSelf: 'stretch', gap: 10 }}>

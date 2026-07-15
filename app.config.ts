@@ -58,6 +58,12 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-status-bar',
     [
+      'expo-image-picker',
+      {
+        photosPermission: 'Allow Flyeasy to access your photos to set your profile picture.',
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         image: './assets/splash-icon.png',

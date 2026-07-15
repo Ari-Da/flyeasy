@@ -48,6 +48,9 @@ Flyeasy.zip
 # brand design handoff sources (rasterized outputs are committed, sources are not)
 brand_designs/
 
+# backend/schema notes
+docs/
+
 # personal/local notes
 *.local.md
 NOTES.local.md
