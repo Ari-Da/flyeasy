@@ -1,6 +1,6 @@
 import type { Session as SupabaseSession, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import { setSessionPersistence, supabase } from '@/lib/supabase';
 
 export type Session = {
   id: string;
@@ -16,7 +16,7 @@ export type ProfileUpdate = Partial<Pick<Session, 'firstName' | 'lastName' | 'de
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<Session>;
+  signIn: (email: string, password: string, remember?: boolean) => Promise<Session>;
   signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -93,9 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn: AuthContextValue['signIn'] = async (email, password) => {
+  const signIn: AuthContextValue['signIn'] = async (email, password, remember = true) => {
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+    // Apply the persistence choice before the session is written to storage.
+    await setSessionPersistence(remember);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);

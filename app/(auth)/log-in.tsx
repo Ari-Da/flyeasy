@@ -19,7 +19,7 @@ export default function LogInScreen() {
 
   const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +27,7 @@ export default function LogInScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      await signIn(email, password, remember);
       router.replace('/(app)/find');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
