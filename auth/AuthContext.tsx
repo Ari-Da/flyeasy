@@ -19,10 +19,21 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<Session>;
   signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  verifyResetCode: (email: string, code: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
   updateProfile: (input: ProfileUpdate) => Promise<Session>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Length of the password-reset code Supabase emails (its recovery OTP is
+ * currently 8 digits). Single source of truth — the input limit, placeholder,
+ * and on-screen copy all derive from this, so changing it updates everywhere.
+ * Must match the code your Supabase "Reset Password" email template sends.
+ */
+export const RESET_CODE_LENGTH = 8;
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -64,10 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, supaSession) => {
-      const next = await loadSession(supaSession?.user, supaSession);
-      if (!mounted) return;
-      setSession(next);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, supaSession) => {
+      // Defer the profile fetch: awaiting other supabase calls *directly* inside
+      // this callback holds the auth client's internal lock and deadlocks the
+      // next auth call (e.g. updateUser right after verifyOtp hangs forever).
+      // Running on the next tick releases the lock first. See supabase-js docs.
+      setTimeout(async () => {
+        const next = await loadSession(supaSession?.user, supaSession);
+        if (!mounted) return;
+        setSession(next);
+      }, 0);
     });
 
     return () => {
@@ -108,6 +125,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
   };
 
+  // Step 1 of password reset: email the user a recovery code (RESET_CODE_LENGTH
+  // digits). Supabase
+  // always resolves success here (it won't reveal whether the email is
+  // registered), so the UI should show the same "check your inbox" state either
+  // way. Whether the email shows a code or a link is controlled by the project's
+  // "Reset Password" email template ({{ .Token }} = the code this flow uses).
+  const requestPasswordReset: AuthContextValue['requestPasswordReset'] = async (email) => {
+    if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    if (error) throw new Error(error.message);
+  };
+
+  // Step 2a: verify the emailed code. Success mints a short-lived recovery
+  // session — that session is what authorizes updatePassword() below. Kept
+  // separate from the password step so a rejected password can be retried
+  // without burning this one-time code.
+  const verifyResetCode: AuthContextValue['verifyResetCode'] = async (email, code) => {
+    if (code.trim().length !== RESET_CODE_LENGTH) {
+      throw new Error(`Enter the ${RESET_CODE_LENGTH}-digit code from your email.`);
+    }
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: 'recovery',
+    });
+    if (error) throw new Error(error.message);
+  };
+
+  // Step 2b: set the password on the current session. Supabase rejects reusing
+  // the old password ("New password should be different…"); that error surfaces
+  // to the caller so it can be shown and retried in place.
+  const updatePassword: AuthContextValue['updatePassword'] = async (newPassword) => {
+    if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
+  };
+
   const updateProfile: AuthContextValue['updateProfile'] = async (input) => {
     const { data: current } = await supabase.auth.getSession();
     const supaSession = current.session;
@@ -134,7 +188,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider
+      value={{ session, loading, signIn, signUp, signOut, requestPasswordReset, verifyResetCode, updatePassword, updateProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

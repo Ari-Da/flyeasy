@@ -13,8 +13,9 @@ import { VerifyBanner } from '@/components/ui/VerifyBanner';
 export default function LogInScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const params = useLocalSearchParams<{ email?: string; justSignedUp?: string }>();
+  const params = useLocalSearchParams<{ email?: string; justSignedUp?: string; passwordReset?: string }>();
   const justSignedUp = params.justSignedUp === '1';
+  const passwordReset = params.passwordReset === '1';
 
   const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
@@ -49,6 +50,12 @@ export default function LogInScreen() {
           <VerifyBanner icon="mail-outline" tone="info">
             <Text style={{ fontWeight: '600' }}>Almost there.</Text> Check your inbox to confirm your email
             {params.email ? ` (${params.email})` : ''}, then log in.
+          </VerifyBanner>
+        )}
+
+        {passwordReset && (
+          <VerifyBanner icon="checkmark">
+            <Text style={{ fontWeight: '600' }}>Password updated.</Text> Log in with your new password.
           </VerifyBanner>
         )}
 
@@ -88,7 +95,12 @@ export default function LogInScreen() {
               Remember me
             </Text>
           </Pressable>
-          <Pressable hitSlop={6}>
+          <Pressable
+            hitSlop={6}
+            onPress={() =>
+              router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } })
+            }
+          >
             <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
               Forgot?
             </Text>
