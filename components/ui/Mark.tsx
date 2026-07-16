@@ -1,6 +1,13 @@
 import { useTheme } from '@/theme';
 import { brandColors } from '@/brand/brand';
+import { Animated } from 'react-native';
 import Svg, { Circle, G, Path } from 'react-native-svg';
+
+const AnimatedG = Animated.createAnimatedComponent(G);
+
+/** Extra rotation applied to a plane (degrees). Number for static, or an
+ * Animated interpolation to drive the splash wave. */
+type Rotation = number | Animated.AnimatedInterpolation<number>;
 
 /**
  * The Flyeasy mark — two paper planes on converging paths meeting nose-to-nose.
@@ -43,6 +50,10 @@ export function Mark({
   leftColor = brandColors.slate,
   leftFoldColor = brandColors.ink,
   dotColor = brandColors.ink,
+  /** Extra rotation on each plane, pivoting at its root — drives the splash
+   * wave. Default 0 (static). Positive = clockwise. */
+  leftRotation = 0,
+  rightRotation = 0,
 }: {
   size?: number;
   planeColor?: string;
@@ -50,20 +61,35 @@ export function Mark({
   leftColor?: string;
   leftFoldColor?: string;
   dotColor?: string;
+  leftRotation?: Rotation;
+  rightRotation?: Rotation;
 }) {
   const t = useTheme();
   const rightColor = planeColor ?? t.colors.accent;
   const rightFold = planeFoldColor ?? darken(rightColor);
 
+  // Rotate each plane around its own centroid so it spins IN PLACE (no drift).
+  // react-native-svg ignores originX/originY on an animated <G>, so we pivot via
+  // nested groups instead: translate the origin to the centroid, rotate around
+  // (0,0), then draw the plane offset back to its normal spot. At rotation 0
+  // this is identical to the static mark.
   return (
     <Svg width={size * RATIO} height={size} viewBox="0 0 200 176">
-      <G transform="translate(96.6,74) rotate(-42)">
-        <Path d={PLANE_BODY} fill={leftColor} />
-        <Path d={PLANE_FOLD} fill={leftFoldColor} opacity={0.85} />
+      <G transform="translate(97.9,75.5)">
+        <AnimatedG rotation={leftRotation}>
+          <G transform="translate(-1.3,-1.5) rotate(-42)">
+            <Path d={PLANE_BODY} fill={leftColor} />
+            <Path d={PLANE_FOLD} fill={leftFoldColor} opacity={0.85} />
+          </G>
+        </AnimatedG>
       </G>
-      <G transform="translate(103.4,74) rotate(42) scale(-1,1)">
-        <Path d={PLANE_BODY} fill={rightColor} />
-        <Path d={PLANE_FOLD} fill={rightFold} />
+      <G transform="translate(102.1,75.5)">
+        <AnimatedG rotation={rightRotation}>
+          <G transform="translate(1.3,-1.5) rotate(42) scale(-1,1)">
+            <Path d={PLANE_BODY} fill={rightColor} />
+            <Path d={PLANE_FOLD} fill={rightFold} />
+          </G>
+        </AnimatedG>
       </G>
       <Circle cx={100} cy={26} r={4.5} fill={dotColor} />
     </Svg>

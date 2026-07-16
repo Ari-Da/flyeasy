@@ -3,6 +3,8 @@ import 'react-native-url-polyfill/auto';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,7 +21,12 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 
 import { AuthProvider } from '@/auth/AuthContext';
+import { AnimatedSplash } from '@/components/ui/AnimatedSplash';
 import { ThemeProvider, useTheme } from '@/theme';
+
+// Keep the native splash up until React is ready; AnimatedSplash hides it and
+// takes over with the waving-logo animation.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function FontGate({ children }: { children: React.ReactNode }) {
   const t = useTheme();
@@ -63,6 +70,16 @@ function ThemedStack() {
   );
 }
 
+function RootStackWithSplash() {
+  const [splashDone, setSplashDone] = useState(false);
+  return (
+    <>
+      <ThemedStack />
+      {!splashDone && <AnimatedSplash onFinish={() => setSplashDone(true)} />}
+    </>
+  );
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -71,7 +88,7 @@ export default function RootLayout() {
           <FontGate>
             <AuthProvider>
               <StatusBar style="dark" />
-              <ThemedStack />
+              <RootStackWithSplash />
             </AuthProvider>
           </FontGate>
         </ThemeProvider>
