@@ -3,6 +3,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
   const [savingBio, setSavingBio] = useState(false);
   const [togglingAvailable, setTogglingAvailable] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [editingName, setEditingName] = useState(false);
   const [firstDraft, setFirstDraft] = useState(session?.firstName ?? '');
@@ -523,6 +525,45 @@ export default function ProfileScreen() {
         </View>
       </View>
         </>
+      )}
+
+      <View style={{ height: 1, backgroundColor: t.colors.rule, marginVertical: 8 }} />
+
+      <Pressable
+        onPress={() => setSettingsOpen((v) => !v)}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+      >
+        <Text variant="section" tone="mute">
+          Settings
+        </Text>
+        <Ionicons
+          name={settingsOpen ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={t.colors.inkMute}
+        />
+      </Pressable>
+
+      {settingsOpen && (
+        <View style={{ gap: 2 }}>
+          <SettingsRow icon="information-circle-outline" label="About" onPress={() => router.push('/about')} />
+          <SettingsRow icon="mail-outline" label="Contact us" onPress={() => router.push('/contact')} />
+          <SettingsRow
+            icon="document-text-outline"
+            label="Terms of Service"
+            onPress={() => router.push('/legal/terms')}
+          />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => router.push('/legal/privacy')}
+          />
+          <SettingsRow
+            icon="trash-outline"
+            label="Delete account"
+            danger
+            onPress={() => router.push('/delete-account')}
+          />
+        </View>
       )}
     </Screen>
   );

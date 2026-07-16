@@ -23,6 +23,12 @@ const APP_VERSION = '1.0.0';
 const IOS_BUNDLE_ID = 'com.flyeasy.app';
 const ANDROID_PACKAGE = 'com.flyeasy.app';
 
+// Support / legal.
+const SUPPORT_EMAIL = 'support@flyeasytogether.com';
+const COMPANY_NAME = 'Flyeasy';
+// Shown on the legal pages. Update when the Terms/Privacy copy changes.
+const LEGAL_LAST_UPDATED = '16 July 2026';
+
 /**
  * Brand palette — mirrors brand_designs/brand.json. The app's themeable accent
  * lives in theme/palettes.ts; these are the fixed brand constants used by the
@@ -53,6 +59,9 @@ module.exports = {
   APP_VERSION,
   IOS_BUNDLE_ID,
   ANDROID_PACKAGE,
+  SUPPORT_EMAIL,
+  COMPANY_NAME,
+  LEGAL_LAST_UPDATED,
   brandColors,
   SPLASH_BG_LIGHT,
   SPLASH_BG_DARK,

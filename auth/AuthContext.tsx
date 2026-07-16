@@ -20,6 +20,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string, remember?: boolean) => Promise<Session>;
   signUp: (input: { firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   verifyResetCode: (email: string, code: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -147,6 +148,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
+  };
+
+  // Permanently delete the signed-in user's account and data via a security-
+  // definer RPC (see docs/DATABASE.md for the `delete_own_account` function),
+  // then clear the local session. The RPC removes the user's rows and their
+  // auth record server-side.
+  const deleteAccount: AuthContextValue['deleteAccount'] = async () => {
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) throw new Error(error.message);
+    // The auth user no longer exists — clear the local session. signOut may
+    // fail server-side (user gone); the local state clears regardless.
+    await supabase.auth.signOut().catch(() => {});
   };
 
   // Step 1 of password reset: email the user a recovery code (RESET_CODE_LENGTH
@@ -290,7 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, signIn, signUp, signOut, requestPasswordReset, verifyResetCode, updatePassword, updateProfile, uploadAvatar, removeAvatar }}
+      value={{ session, loading, signIn, signUp, signOut, deleteAccount, requestPasswordReset, verifyResetCode, updatePassword, updateProfile, uploadAvatar, removeAvatar }}
     >
       {children}
     </AuthContext.Provider>

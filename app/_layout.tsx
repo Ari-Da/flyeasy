@@ -66,6 +66,11 @@ function ThemedStack() {
       <Stack.Screen name="flight/[id]" options={{ presentation: 'card' }} />
       <Stack.Screen name="flight/add" options={{ presentation: 'modal' }} />
       <Stack.Screen name="chat/[id]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="about" options={{ presentation: 'card' }} />
+      <Stack.Screen name="contact" options={{ presentation: 'card' }} />
+      <Stack.Screen name="legal/terms" options={{ presentation: 'card' }} />
+      <Stack.Screen name="legal/privacy" options={{ presentation: 'card' }} />
+      <Stack.Screen name="delete-account" options={{ presentation: 'card' }} />
     </Stack>
   );
 }

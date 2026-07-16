@@ -7,6 +7,9 @@ export const APP_SCHEME: string;
 export const APP_VERSION: string;
 export const IOS_BUNDLE_ID: string;
 export const ANDROID_PACKAGE: string;
+export const SUPPORT_EMAIL: string;
+export const COMPANY_NAME: string;
+export const LEGAL_LAST_UPDATED: string;
 
 export const brandColors: {
   cream: string;

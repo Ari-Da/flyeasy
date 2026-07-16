@@ -94,15 +94,31 @@ export default function SignUpScreen() {
           />
         </View>
 
-        <Pressable
-          onPress={() => setAgreed((v) => !v)}
-          style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 6 }}
-        >
-          <Checkbox value={agreed} onChange={setAgreed} />
-          <Text variant="body" tone="soft">
-            I agree to terms & privacy
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <Pressable onPress={() => setAgreed((v) => !v)} hitSlop={6}>
+            <Checkbox value={agreed} onChange={setAgreed} />
+          </Pressable>
+          <Text variant="body" tone="soft" style={{ flex: 1 }}>
+            I agree to the{' '}
+            <Text
+              variant="body"
+              weight="semibold"
+              style={{ textDecorationLine: 'underline' }}
+              onPress={() => router.push('/legal/terms')}
+            >
+              Terms
+            </Text>{' '}
+            &amp;{' '}
+            <Text
+              variant="body"
+              weight="semibold"
+              style={{ textDecorationLine: 'underline' }}
+              onPress={() => router.push('/legal/privacy')}
+            >
+              Privacy Policy
+            </Text>
           </Text>
-        </Pressable>
+        </View>
 
         {error && (
           <Text variant="caption" align="center" style={{ color: '#a04020' }}>
