@@ -80,12 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, supaSession) => {
+      if (!supaSession) {
+        // Signed out: no profile fetch needed, so clear synchronously. This
+        // avoids a navigation race — after `await signOut()` the session is
+        // already null, so route guards won't briefly treat the user as still
+        // logged in and redirect them into the app.
+        if (mounted) setSession(null);
+        return;
+      }
       // Defer the profile fetch: awaiting other supabase calls *directly* inside
       // this callback holds the auth client's internal lock and deadlocks the
       // next auth call (e.g. updateUser right after verifyOtp hangs forever).
       // Running on the next tick releases the lock first. See supabase-js docs.
       setTimeout(async () => {
-        const next = await loadSession(supaSession?.user, supaSession);
+        const next = await loadSession(supaSession.user, supaSession);
         if (!mounted) return;
         setSession(next);
       }, 0);
@@ -117,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -125,6 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     if (error) throw new Error(error.message);
+
+    // With email confirmation + enumeration protection enabled, Supabase does
+    // NOT error on a duplicate email — to avoid revealing which emails exist it
+    // returns an obfuscated user with an EMPTY identities array and writes
+    // nothing. Detect that and surface a real "already registered" error, so we
+    // don't send the user to the fake "confirm your email" flow.
+    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      throw new Error('An account with this email already exists. Please log in instead.');
+    }
   };
 
   const signOut = async () => {
@@ -152,6 +169,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (code.trim().length !== RESET_CODE_LENGTH) {
       throw new Error(`Enter the ${RESET_CODE_LENGTH}-digit code from your email.`);
     }
+    // Keep the recovery session MEMORY-ONLY. Verifying the code necessarily
+    // mints a session (Supabase has no way to change a password without one),
+    // but it must never be written to disk — otherwise an app kill mid-reset
+    // would strand the user logged in after a restart. It lives only for this
+    // flow: a completed reset signs out and the user logs in fresh; an abandoned
+    // one is signed out by the screen's leave-guard; an app kill just loses it.
+    await setSessionPersistence(false);
     const { error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: code.trim(),
@@ -160,13 +184,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
   };
 
-  // Step 2b: set the password on the current session. Supabase rejects reusing
-  // the old password ("New password should be different…"); that error surfaces
-  // to the caller so it can be shown and retried in place.
+  // Step 2b: set the password on the current session.
   const updatePassword: AuthContextValue['updatePassword'] = async (newPassword) => {
     if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Don't echo Supabase's "New password should be different from the old
+      // password" verbatim — that confirms the entered value IS the current
+      // password, a reuse oracle for anyone already holding the reset code.
+      // Surface a neutral message instead.
+      const samePassword =
+        error.code === 'same_password' || /different from the old|same.?password/i.test(error.message);
+      throw new Error(
+        samePassword ? 'Could not update your password. Please choose a different one.' : error.message,
+      );
+    }
   };
 
   const updateProfile: AuthContextValue['updateProfile'] = async (input) => {

@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { RESET_CODE_LENGTH, useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -13,8 +13,12 @@ type Step = 'request' | 'verify';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { requestPasswordReset, verifyResetCode, updatePassword, signOut } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
+  // Set once the reset actually completes, so the leave-guard below knows the
+  // sign-out was already handled and doesn't double-handle it.
+  const completedRef = useRef(false);
 
   const [step, setStep] = useState<Step>('request');
   const [email, setEmail] = useState(params.email ?? '');
@@ -30,6 +34,20 @@ export default function ForgotPasswordScreen() {
   const [verified, setVerified] = useState(false);
 
   const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  // Verifying the code establishes a recovery session (the user is now
+  // authenticated). If they leave WITHOUT finishing the reset — back button,
+  // swipe, hardware back — that session would strand them logged in and the
+  // (auth) guard would redirect them into the app. So sign out first, then let
+  // the navigation proceed. Only relevant once `verified` and not yet completed.
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', (e) => {
+      if (completedRef.current || !verified) return;
+      e.preventDefault();
+      signOut().finally(() => navigation.dispatch(e.data.action));
+    });
+    return unsub;
+  }, [navigation, verified, signOut]);
 
   const goToVerify = (msg: string | null) => {
     setError(null);
@@ -70,6 +88,8 @@ export default function ForgotPasswordScreen() {
         setVerified(true);
       }
       await updatePassword(password);
+      // Reset succeeded — mark it so the leave-guard doesn't also sign out.
+      completedRef.current = true;
       // Clear the recovery session and send them to log in with the new password,
       // rather than dropping them straight into the app — confirms the password
       // works and leaves no lingering reset session.
