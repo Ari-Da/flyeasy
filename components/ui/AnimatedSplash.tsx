@@ -10,7 +10,17 @@ import { Mark } from './Mark';
 const WAVE_DEG = -10;
 const WAVE_COUNT = 3;
 const HALF_MS = 320; // one half of a wave (out, or back)
-const MARK_SIZE = 176; // matches the native splash image width (~200px wide)
+// Sized so the rendered mark matches the native splash's on-screen mark. The
+// native splash is a 288px PNG scaled to imageWidth 200 (app.config.ts), whose
+// actual glyph lands at ~149x183px on screen. The <Mark> glyph only fills part
+// of its viewBox, so it needs a larger nominal size to reach the same visible
+// footprint (visible ≈ 0.44 x MARK_SIZE).
+const MARK_SIZE = 338;
+// The <Mark> glyph isn't vertically centered inside its viewBox — its visible
+// content centers ~19 of 176 viewBox units above the box center. The native
+// splash glyph IS canvas-centered, so nudge ours down by that fraction to line
+// the two up. Proportional to MARK_SIZE, so it holds on every screen size.
+const MARK_OFFSET_Y = Math.round((19 / 176) * MARK_SIZE); // ~36px
 
 /**
  * Animated splash overlay. Shown on top of the app at launch, it mimics the
@@ -80,7 +90,9 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   }, [wave, opacity, onFinish]);
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, styles.fill, { opacity }]}>
+    <Animated.View
+      style={[StyleSheet.absoluteFill, styles.fill, { opacity, transform: [{ translateY: MARK_OFFSET_Y }] }]}
+    >
       <Mark
         size={MARK_SIZE}
         planeColor={brandColors.green}
