@@ -150,23 +150,32 @@ export default function ProfileScreen() {
   };
 
   const onChangePhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Photo access needed', 'Allow photo access to change your picture.');
-      return;
-    }
+    // Use the system photo picker (iOS PHPicker / Android photo picker): it's
+    // permission-free and behaves identically under None / Limited / Full photo
+    // access, so no access prompt ever appears. It has no built-in crop UI, so
+    // we auto center-crop to a square ourselves below. We deliberately do NOT
+    // use allowsEditing — see docs/avatar-photo-picker.md for the full reasoning
+    // (the native editor triggers a mistimed access prompt for Limited-access
+    // users).
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
       quality: 1,
     });
     if (result.canceled) return;
+    const asset = result.assets[0];
 
     setUploadingPhoto(true);
     try {
-      // Resize + compress before upload so we're not pushing multi-MB originals.
-      const rendered = await ImageManipulator.manipulate(result.assets[0].uri)
+      // Center-crop to a square, then resize + compress so we're not pushing
+      // multi-MB originals.
+      const side = Math.min(asset.width, asset.height);
+      const rendered = await ImageManipulator.manipulate(asset.uri)
+        .crop({
+          originX: (asset.width - side) / 2,
+          originY: (asset.height - side) / 2,
+          width: side,
+          height: side,
+        })
         .resize({ width: 512 })
         .renderAsync();
       const image = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
