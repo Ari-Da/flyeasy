@@ -114,6 +114,45 @@ type Session = {
 };
 ```
 
+### Email confirmation redirect
+
+New signups get a Supabase confirmation email. Clicking the link hits Supabase's
+`/auth/v1/verify` endpoint, which **confirms the email server-side**, then
+redirects the browser to a landing URL. The email is confirmed regardless of
+where the redirect lands — the page is purely informational (the user still logs
+in inside the app; the web page does not sign them in).
+
+**Where the redirect is configured — Supabase Dashboard only.** The redirect
+target is the **Site URL** under _Authentication → URL Configuration_, set to
+`https://flyeasytogether.com/confirmed.html`, which serves the static
+confirmation page in [`web/confirmed.html`](web/confirmed.html) (kept on a path
+rather than the root so the root stays free for a future marketing site).
+`signUp` in `auth/AuthContext.tsx` does **not** pass `emailRedirectTo`, so
+Supabase falls back to this Site URL. There is nothing in the app code that
+controls this redirect — if the confirmation link ever lands somewhere wrong
+(e.g. back on `localhost`), fix it in the dashboard, not the repo.
+
+> Password reset is unaffected: it uses an OTP code flow (`verifyOtp`,
+> `type: 'recovery'`), not a link redirect, so it never reads the Site URL.
+
+**Alternative (not currently used): set it in code.** Passing
+`options.emailRedirectTo` on the `supabase.auth.signUp(...)` call overrides the
+Site URL per-call and makes the target version-controlled and visible in the
+repo. It also lets different flows land on different pages. If you adopt it,
+remember any such URL must also be added to the dashboard **Redirect allow-list**
+or Supabase rejects it:
+
+```ts
+await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: { firstName, lastName },
+    emailRedirectTo: 'https://flyeasytogether.com/confirmed.html', // overrides the Site URL
+  },
+});
+```
+
 ## Mock data & dev flags
 
 The flights flow is end-to-end live: enter a flight number + date, AeroDataBox returns the route / times / aircraft, the flight is saved to Supabase scoped to the signed-in user.

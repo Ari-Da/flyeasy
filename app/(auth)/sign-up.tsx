@@ -17,6 +17,7 @@ export default function SignUpScreen() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,10 @@ export default function SignUpScreen() {
   const submit = async () => {
     if (!agreed) {
       setError('Please agree to terms & privacy.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
     setError(null);
@@ -91,6 +96,21 @@ export default function SignUpScreen() {
             secureTextEntry
             textContentType="newPassword"
             autoComplete="new-password"
+          />
+          <Input
+            label="Confirm password"
+            placeholder="••••••••"
+            iconChar="•"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            textContentType="newPassword"
+            autoComplete="new-password"
+            error={
+              confirmPassword.length > 0 && confirmPassword !== password
+                ? "Passwords don't match"
+                : undefined
+            }
           />
         </View>
 
