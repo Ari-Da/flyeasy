@@ -121,7 +121,13 @@ export async function lookupFlight(
     throw new AeroDataBoxError('Date must be YYYY-MM-DD (e.g. "2026-04-28").');
   }
 
-  const url = `${BASE_URL}/flights/number/${encodeURIComponent(normalized)}/${encodeURIComponent(date)}?withAircraftImage=false&withLocation=true`;
+  // dateLocalRole=Departure: match strictly on the departure date in the origin
+  // airport's local timezone. Without it AeroDataBox defaults to matching flights
+  // that depart OR arrive on the date, so an overnight flight (departs evening,
+  // lands next day) surfaces twice — once for the prior day's departure that
+  // arrives on the searched date. Users enter their departure date, so we anchor
+  // on departure only.
+  const url = `${BASE_URL}/flights/number/${encodeURIComponent(normalized)}/${encodeURIComponent(date)}?withAircraftImage=false&withLocation=true&dateLocalRole=Departure`;
 
   let res: Response;
   try {

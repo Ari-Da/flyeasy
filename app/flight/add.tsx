@@ -80,9 +80,13 @@ export default function AddFlightScreen() {
   const [picked, setPicked] = useState<FlightLookupResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Non-error, informational message (e.g. the flight is already saved). Shown
+  // in a neutral tone rather than the red error style.
+  const [notice, setNotice] = useState<string | null>(null);
 
   const onLookup = async () => {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const matches = await lookupFlight(flightInput, dateInput);
@@ -107,6 +111,7 @@ export default function AddFlightScreen() {
   const onSave = async () => {
     if (!picked || !session) return;
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const { error: insertErr } = await supabase.from('flights').insert({
@@ -140,8 +145,11 @@ export default function AddFlightScreen() {
         flight_message: session.description ?? '',
       });
       if (insertErr) {
+        // 23505 = unique-constraint violation on (user_id, flight_number,
+        // scheduled_departure_utc): the user already has this exact flight.
+        // Surface it as a neutral notice, not an error.
         if (insertErr.code === '23505') {
-          setError('You already have this flight saved.');
+          setNotice('This flight is already in your profile.');
         } else {
           setError(insertErr.message);
         }
@@ -160,6 +168,7 @@ export default function AddFlightScreen() {
     setResults([]);
     setPicked(null);
     setError(null);
+    setNotice(null);
   };
 
   const headerTitle = useMemo(() => {
@@ -345,6 +354,12 @@ export default function AddFlightScreen() {
             {error && (
               <Text variant="caption" align="center" style={{ color: '#a04020' }}>
                 {error}
+              </Text>
+            )}
+
+            {notice && (
+              <Text variant="caption" align="center" style={{ color: t.colors.accent }}>
+                {notice}
               </Text>
             )}
 
