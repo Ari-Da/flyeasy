@@ -16,14 +16,23 @@ import { useTheme } from '@/theme';
 
 type Step = 'search' | 'pick' | 'confirm';
 
+// Format a Date as YYYY-MM-DD from its LOCAL parts. Avoids toISOString(), which
+// converts to UTC and can shift the day for users in negative-UTC offsets in the
+// evening — making the default/earliest dates off by one. The date the user
+// actively picks in the calendar is already a tz-agnostic string, so only these
+// computed defaults need this.
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function tomorrowYmd(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return ymdLocal(d);
 }
 
 function todayYmd(): string {
-  return new Date().toISOString().slice(0, 10);
+  return ymdLocal(new Date());
 }
 
 function formatYmdPretty(ymd: string): string {
