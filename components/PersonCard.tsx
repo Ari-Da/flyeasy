@@ -54,7 +54,7 @@ export function PersonCard({
     <Pressable onPress={() => router.push(`/user/${person.id}`)}>
       <Card>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <Avatar size={44} initials={person.initials} />
+          <Avatar size={44} initials={person.initials} uri={person.avatarUrl} />
           <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
             <Text variant="h3">{person.name}</Text>
             {person.verified && <Verified />}

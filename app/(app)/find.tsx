@@ -243,6 +243,7 @@ export default function FindScreen() {
           description: tr.flightMessage?.trim() || tr.description || '',
           flightId: tr.matchedFlightId,
           verified: true,
+          avatarUrl: tr.avatarUrl,
         };
       });
   const showEmpty = people.length === 0;

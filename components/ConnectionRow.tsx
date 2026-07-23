@@ -37,7 +37,7 @@ export function ConnectionRow({
           borderBottomColor: t.colors.rule,
         }}
       >
-        <Avatar size={46} initials={person.initials} />
+        <Avatar size={46} initials={person.initials} uri={person.avatarUrl} />
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text variant="h3">{person.shortName}</Text>

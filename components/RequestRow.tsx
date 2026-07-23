@@ -25,7 +25,7 @@ export function RequestRow({
   return (
     <Card>
       <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-        <Avatar size={42} initials={person.initials} />
+        <Avatar size={42} initials={person.initials} uri={person.avatarUrl} />
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Text variant="h3">{person.name}</Text>
           <Text variant="mono" tone="mute">

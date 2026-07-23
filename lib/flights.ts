@@ -175,6 +175,7 @@ export type Traveler = {
   firstName: string;
   lastName: string;
   description: string;
+  avatarUrl: string | null;
   flightMessage: string;
   matchedFlightId: string;
 };
@@ -189,6 +190,7 @@ export async function fetchTravelersOnFlight(flightId: string): Promise<Traveler
     first_name: string;
     last_name: string;
     description: string;
+    avatar_url: string | null;
     flight_message: string;
     matched_flight_id: string;
   }>).map((row) => ({
@@ -196,6 +198,7 @@ export async function fetchTravelersOnFlight(flightId: string): Promise<Traveler
     firstName: row.first_name,
     lastName: row.last_name,
     description: row.description,
+    avatarUrl: row.avatar_url ?? null,
     flightMessage: row.flight_message,
     matchedFlightId: row.matched_flight_id,
   }));

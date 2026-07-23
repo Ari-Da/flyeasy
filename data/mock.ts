@@ -37,6 +37,8 @@ export type Person = {
   description: string;
   flightId: string;
   verified: boolean;
+  /** Profile photo URL. Falls back to initials when absent. */
+  avatarUrl?: string | null;
 };
 
 export type ConnectionRequest = {

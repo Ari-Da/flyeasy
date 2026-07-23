@@ -44,6 +44,7 @@ function toPerson(c: MyConnection): Person {
     description: c.description || '',
     flightId: c.myFlightId,
     verified: true,
+    avatarUrl: c.avatarUrl,
   };
 }
 
