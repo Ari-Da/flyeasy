@@ -423,7 +423,7 @@ export default function ProfileScreen() {
       </Pressable>
 
       <View>
-        <Button kind="ghost" full loading={signingOut} onPress={handleSignOut} textColor="#c83e2e">
+        <Button kind="ghost" full tone="danger" loading={signingOut} onPress={handleSignOut}>
           Sign out
         </Button>
       </View>

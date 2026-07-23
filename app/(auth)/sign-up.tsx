@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
+import { ErrorText } from '@/components/ui/ErrorText';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -141,9 +142,7 @@ export default function SignUpScreen() {
         </View>
 
         {error && (
-          <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-            {error}
-          </Text>
+          <ErrorText>{error}</ErrorText>
         )}
 
         <View style={{ gap: 12, marginTop: 20 }}>

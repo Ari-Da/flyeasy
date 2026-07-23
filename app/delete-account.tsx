@@ -71,7 +71,7 @@ export default function DeleteAccountScreen() {
       </Card>
 
       <View style={{ gap: 10, marginTop: 8 }}>
-        <Button kind="primary" size="lg" full loading={deleting} onPress={confirmDelete} textColor="#ffffff" style={{ backgroundColor: '#c83e2e', borderColor: '#c83e2e' }}>
+        <Button kind="primary" size="lg" full tone="danger" loading={deleting} onPress={confirmDelete}>
           Delete my account
         </Button>
         <Button kind="ghost" full onPress={emailSupport} disabled={deleting}>

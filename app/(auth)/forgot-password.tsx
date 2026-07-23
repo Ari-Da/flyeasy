@@ -8,6 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
+import { ErrorText } from '@/components/ui/ErrorText';
 
 type Step = 'request' | 'verify';
 
@@ -134,9 +135,7 @@ export default function ForgotPasswordScreen() {
             </View>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
-              </Text>
+              <ErrorText>{error}</ErrorText>
             )}
 
             <View style={{ gap: 12, marginTop: 20 }}>
@@ -209,9 +208,7 @@ export default function ForgotPasswordScreen() {
             </View>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
-              </Text>
+              <ErrorText>{error}</ErrorText>
             )}
 
             <View style={{ gap: 12, marginTop: 20 }}>

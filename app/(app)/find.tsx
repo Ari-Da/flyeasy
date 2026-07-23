@@ -1,26 +1,37 @@
-import { PersonCard } from '@/components/PersonCard';
+import { FlightChips } from '@/components/FlightChips';
+import { PersonCard, type ConnectState } from '@/components/PersonCard';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { ACTIVE_FLIGHT_ID, FLIGHTS, getFlight, peopleOnFlight, type Flight, type Person } from '@/data/mock';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import {
+  fetchMyConnections,
+  respondToRequest,
+  sendConnectionRequest,
+  withdrawRequest,
+  type MyConnection,
+} from '@/lib/connections';
 import { fetchTravelersOnFlight, fetchUpcomingFlights, type Traveler } from '@/lib/flights';
 import { useTheme } from '@/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
 
 export default function FindScreen() {
   const t = useTheme();
   const router = useRouter();
+  // Mock-mode only: ephemeral "requested" set. Real mode uses `connections`.
   const [requested, setRequested] = useState<Set<string>>(new Set());
   const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const [travelers, setTravelers] = useState<Traveler[]>([]);
+  const [connections, setConnections] = useState<MyConnection[]>([]);
+  // Person id whose Connect/Accept action is currently in flight.
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTravelers, setLoadingTravelers] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +49,16 @@ export default function FindScreen() {
       setError(e instanceof Error ? e.message : 'Could not load travelers.');
     } finally {
       setLoadingTravelers(false);
+    }
+  }, []);
+
+  // All of the caller's connections (any flight). Filtered per-flight in the UI.
+  const loadConnections = useCallback(async () => {
+    if (FEATURE_FLAGS.useMockPeople) return;
+    try {
+      setConnections(await fetchMyConnections());
+    } catch {
+      // Non-fatal: the list still renders; buttons just fall back to "Connect".
     }
   }, []);
 
@@ -60,12 +81,13 @@ export default function FindScreen() {
       } else {
         setTravelers([]);
       }
+      await loadConnections();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load your flights.');
     } finally {
       setLoading(false);
     }
-  }, [loadTravelers]);
+  }, [loadTravelers, loadConnections]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,13 +102,90 @@ export default function FindScreen() {
     loadTravelers(id);
   };
 
-  const toggleRequest = (id: string) => {
-    setRequested((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // The caller's connection with each person, scoped to the selected flight
+  // (`myFlightId` is always the caller's own flight row).
+  const connByUser = useMemo(() => {
+    const m = new Map<string, MyConnection>();
+    for (const c of connections) {
+      if (c.myFlightId === selectedFlightId) m.set(c.otherUserId, c);
+    }
+    return m;
+  }, [connections, selectedFlightId]);
+
+  const connectStateFor = (personId: string): ConnectState => {
+    if (FEATURE_FLAGS.useMockPeople) return requested.has(personId) ? 'requested' : 'none';
+    const c = connByUser.get(personId);
+    if (!c) return 'none';
+    if (c.status === 'accepted') return 'connected';
+    if (c.status === 'pending') return c.direction === 'outgoing' ? 'requested' : 'incoming';
+    // declined: the addressee (incoming) declined and may re-connect; the
+    // requester (outgoing) was declined and sees an inert "Declined".
+    return c.direction === 'incoming' ? 'reconnect' : 'declined';
+  };
+
+  // Send / re-send a request. In mock mode this is just the local toggle.
+  const onConnect = async (personId: string) => {
+    if (FEATURE_FLAGS.useMockPeople) {
+      setRequested((prev) => new Set(prev).add(personId));
+      return;
+    }
+    if (!selectedFlightId) return;
+    setBusyId(personId);
+    try {
+      await sendConnectionRequest(personId, selectedFlightId);
+      await loadConnections();
+    } catch (e) {
+      Alert.alert('Could not connect', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onAccept = async (personId: string) => {
+    const c = connByUser.get(personId);
+    if (!c) return;
+    setBusyId(personId);
+    try {
+      await respondToRequest(c.id, true);
+      await loadConnections();
+    } catch (e) {
+      Alert.alert('Could not accept', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Undo an outgoing request. Confirmed first — it's destructive from the other
+  // person's side (the request disappears from their Requests tab).
+  const onWithdraw = (personId: string) => {
+    if (FEATURE_FLAGS.useMockPeople) {
+      setRequested((prev) => {
+        const next = new Set(prev);
+        next.delete(personId);
+        return next;
+      });
+      return;
+    }
+    const c = connByUser.get(personId);
+    if (!c) return;
+    Alert.alert('Withdraw request?', 'They will no longer see your connection request.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Withdraw',
+        style: 'destructive',
+        onPress: async () => {
+          setBusyId(personId);
+          try {
+            await withdrawRequest(c.id);
+            await loadConnections();
+          } catch (e) {
+            Alert.alert('Could not withdraw', e instanceof Error ? e.message : 'Please try again.');
+          } finally {
+            setBusyId(null);
+          }
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -155,25 +254,7 @@ export default function FindScreen() {
     >
       <TopBar title="Find Travelers" rightIcon="search" />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 6, paddingRight: 8 }}
-        style={{ flexGrow: 0 }}
-      >
-        {upcomingFlights.map((f) => {
-          const niceDate = f.date.replace(/\b([A-Z])([A-Z]+)/g, (_, a, b) => a + b.toLowerCase());
-          return (
-            <Chip
-              key={f.id}
-              active={f.id === selectedFlightId}
-              onPress={() => onSelectFlight(f.id)}
-            >
-              {`${f.code} · ${niceDate}, ${f.time.toUpperCase()}`}
-            </Chip>
-          );
-        })}
-      </ScrollView>
+      <FlightChips flights={upcomingFlights} selectedId={selectedFlightId} onSelect={onSelectFlight} />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Text variant="mono" tone="mute">
@@ -207,8 +288,11 @@ export default function FindScreen() {
               key={p.id}
               person={p}
               flight={selectedFlight}
-              requested={requested.has(p.id)}
-              onConnect={() => toggleRequest(p.id)}
+              connectState={connectStateFor(p.id)}
+              busy={busyId === p.id}
+              onConnect={() => onConnect(p.id)}
+              onAccept={() => onAccept(p.id)}
+              onWithdraw={() => onWithdraw(p.id)}
             />
           ))}
         </View>

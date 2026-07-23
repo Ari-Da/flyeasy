@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
+import { ErrorText } from '@/components/ui/ErrorText';
 import { AeroDataBoxError, lookupFlight, type FlightLookupResult } from '@/lib/aerodatabox';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/theme';
@@ -230,9 +231,7 @@ export default function AddFlightScreen() {
             </View>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
-              </Text>
+              <ErrorText>{error}</ErrorText>
             )}
 
             <View style={{ marginTop: 20 }}>
@@ -361,9 +360,7 @@ export default function AddFlightScreen() {
             </Card>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
-              </Text>
+              <ErrorText>{error}</ErrorText>
             )}
 
             {notice && (

@@ -23,7 +23,7 @@ export function SettingsRow({
   danger?: boolean;
 }) {
   const t = useTheme();
-  const color = danger ? '#c83e2e' : t.colors.ink;
+  const color = danger ? t.colors.danger : t.colors.ink;
 
   return (
     <Pressable
@@ -36,7 +36,7 @@ export function SettingsRow({
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Ionicons name={icon} size={19} color={danger ? '#c83e2e' : t.colors.inkMute} />
+      <Ionicons name={icon} size={19} color={danger ? t.colors.danger : t.colors.inkMute} />
       <View style={{ flex: 1, gap: 1 }}>
         <Text variant="body" style={{ color, fontFamily: t.fontFamily.uiMedium }}>
           {label}
