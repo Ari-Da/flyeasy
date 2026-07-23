@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
+import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { FlightChips } from '@/components/FlightChips';
 import { ConnectionRow } from '@/components/ConnectionRow';
 import { RequestRow } from '@/components/RequestRow';
@@ -77,6 +79,7 @@ function mockConnections(): MyConnection[] {
       return {
         id: r.id, status: 'pending', direction: 'incoming', otherUserId: p.id,
         firstName: first, lastName: last, description: p.description, avatarUrl: null,
+        otherAvailable: true,
         myFlightId: p.flightId, message: r.message, createdAt: '',
       };
     })
@@ -88,6 +91,7 @@ function mockConnections(): MyConnection[] {
     return {
       id: c.id, status: 'accepted', direction: 'outgoing', otherUserId: p.id,
       firstName: first, lastName: last, description: p.description, avatarUrl: null,
+      otherAvailable: true,
       myFlightId: c.flightId, message: null, createdAt: '',
     };
   }).filter((x): x is MyConnection => x !== null);
@@ -97,6 +101,10 @@ function mockConnections(): MyConnection[] {
 export default function ConnectionsScreen() {
   const t = useTheme();
   const router = useRouter();
+  const { session } = useAuth();
+  // While the user has paused connecting, incoming requests are frozen: still
+  // listed, but Accept/Decline are disabled until they turn availability back on.
+  const iAmAvailable = session?.availableToConnect ?? true;
   const [tab, setTab] = useState<Tab>('requests');
   const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
@@ -226,6 +234,15 @@ export default function ConnectionsScreen() {
     <Screen scroll={hasContent} contentStyle={hasContent ? undefined : { flex: 1 }}>
       <TopBar title="Connections" />
 
+      {/* Page-level, not per-row: one banner explains the frozen state for the
+          whole screen. */}
+      {!iAmAvailable && (
+        <VerifyBanner icon="pause" tone="info">
+          You&apos;ve paused connecting. Existing requests and connections are kept, but
+          on hold — turn &quot;Available to connect&quot; back on in your profile to respond.
+        </VerifyBanner>
+      )}
+
       {upcomingFlights.length > 0 && (
         <FlightChips
           flights={upcomingFlights}
@@ -261,6 +278,8 @@ export default function ConnectionsScreen() {
                   person={toPerson(c)}
                   flight={flight}
                   message={c.message || toPerson(c).description}
+                  disabled={!iAmAvailable}
+                  unavailable={!c.otherAvailable}
                   onAccept={() => respond(c, true)}
                   onDecline={() => respond(c, false)}
                 />
@@ -281,6 +300,7 @@ export default function ConnectionsScreen() {
                   person={toPerson(c)}
                   flight={flight}
                   message={c.message || toPerson(c).description}
+                  unavailable={!c.otherAvailable}
                   onWithdraw={() => withdraw(c)}
                 />
               );
@@ -304,6 +324,7 @@ export default function ConnectionsScreen() {
                 connection={toConnectionRow(c)}
                 person={toPerson(c)}
                 flight={flight}
+                unavailable={!c.otherAvailable}
                 onPress={() => router.push(`/user/${c.otherUserId}`)}
               />
             );

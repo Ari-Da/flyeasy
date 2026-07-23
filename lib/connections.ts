@@ -20,6 +20,9 @@ export type MyConnection = {
   lastName: string;
   description: string;
   avatarUrl: string | null;
+  /** The other person's `available_to_connect`. When false the connection is
+   * frozen — they've paused connecting, so it can't progress right now. */
+  otherAvailable: boolean;
   myFlightId: string;
   message: string | null;
   createdAt: string;
@@ -34,6 +37,7 @@ type RawConnection = {
   last_name: string;
   description: string;
   avatar_url: string | null;
+  other_available: boolean;
   my_flight_id: string;
   message: string | null;
   created_at: string;
@@ -67,6 +71,7 @@ export async function fetchMyConnections(): Promise<MyConnection[]> {
     lastName: r.last_name,
     description: r.description,
     avatarUrl: r.avatar_url,
+    otherAvailable: r.other_available ?? true,
     myFlightId: r.my_flight_id,
     message: r.message,
     createdAt: r.created_at,
@@ -80,8 +85,18 @@ export async function fetchMyConnections(): Promise<MyConnection[]> {
  * and only while the row is still `pending`.
  */
 export async function withdrawRequest(connectionId: string): Promise<void> {
-  const { error } = await supabase.from('connections').delete().eq('id', connectionId);
+  // `.select()` so we can tell "deleted" from "RLS matched nothing". Without it
+  // a policy-blocked delete resolves successfully with zero rows and the caller
+  // would report success while nothing happened.
+  const { data, error } = await supabase
+    .from('connections')
+    .delete()
+    .eq('id', connectionId)
+    .select('id');
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error('This request could not be withdrawn — it may have already been handled.');
+  }
 }
 
 /**
@@ -90,9 +105,19 @@ export async function withdrawRequest(connectionId: string): Promise<void> {
  * only while the row is still `pending`.
  */
 export async function respondToRequest(connectionId: string, accept: boolean): Promise<void> {
-  const { error } = await supabase
+  // `.select()` so a policy-blocked update is distinguishable from a real one —
+  // RLS filtering yields zero rows and NO error, which would otherwise look like
+  // success. Most likely cause: the responder has paused connecting (the
+  // `connections_update_addressee` policy requires `available_to_connect`).
+  const { data, error } = await supabase
     .from('connections')
     .update({ status: accept ? 'accepted' : 'declined', updated_at: new Date().toISOString() })
-    .eq('id', connectionId);
+    .eq('id', connectionId)
+    .select('id');
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'This request could not be updated. If you have paused connecting, turn "Available to connect" back on and try again.',
+    );
+  }
 }

@@ -26,6 +26,7 @@ export function ActionPill({
   variant = 'solid',
   onPress,
   busy = false,
+  disabled = false,
   style,
 }: {
   label: string;
@@ -36,6 +37,8 @@ export function ActionPill({
   variant?: PillVariant;
   onPress?: () => void;
   busy?: boolean;
+  /** Greys out and blocks the press (e.g. frozen while unavailable). */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
@@ -73,11 +76,12 @@ export function ActionPill({
         e.stopPropagation?.();
         onPress();
       }}
-      disabled={busy}
+      disabled={busy || disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: busy || disabled }}
       hitSlop={6}
-      style={({ pressed }) => [shape, { opacity: busy ? 0.5 : pressed ? 0.7 : 1 }, style]}
+      style={({ pressed }) => [shape, { opacity: busy || disabled ? 0.4 : pressed ? 0.7 : 1 }, style]}
     >
       {body}
     </Pressable>

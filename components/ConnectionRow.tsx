@@ -11,6 +11,7 @@ export function ConnectionRow({
   connection,
   flightSubtitle,
   onPress,
+  unavailable = false,
 }: {
   person: Person;
   flight: Flight;
@@ -18,6 +19,9 @@ export function ConnectionRow({
   /** Override default flight subtitle text (e.g. "Departs in 2d", "Closed") */
   flightSubtitle?: string;
   onPress?: () => void;
+  /** The other person paused connecting — dim the row. Chat, once it exists,
+   * should be read-only in this state. */
+  unavailable?: boolean;
 }) {
   const t = useTheme();
   const router = useRouter();
@@ -35,6 +39,7 @@ export function ConnectionRow({
           paddingVertical: 12,
           borderBottomWidth: 1,
           borderBottomColor: t.colors.rule,
+          opacity: unavailable ? 0.55 : 1,
         }}
       >
         <Avatar size={46} initials={person.initials} uri={person.avatarUrl} />
@@ -64,7 +69,7 @@ export function ConnectionRow({
             )}
           </View>
           <Text variant="monoSm" tone="mute">
-            {subtitle}
+            {unavailable ? `${subtitle} · Unavailable` : subtitle}
           </Text>
           <Text
             numberOfLines={1}

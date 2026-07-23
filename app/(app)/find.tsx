@@ -1,3 +1,4 @@
+import { useAuth } from '@/auth/AuthContext';
 import { FlightChips } from '@/components/FlightChips';
 import { PersonCard, type ConnectState } from '@/components/PersonCard';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,7 @@ import { ActivityIndicator, Alert, View } from 'react-native';
 export default function FindScreen() {
   const t = useTheme();
   const router = useRouter();
+  const { session } = useAuth();
   // Mock-mode only: ephemeral "requested" set. Real mode uses `connections`.
   const [requested, setRequested] = useState<Set<string>>(new Set());
   const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
@@ -277,11 +279,25 @@ export default function FindScreen() {
           <ActivityIndicator color={t.colors.accent} />
         </View>
       ) : showEmpty ? (
-        <EmptyState
-          icon="people-outline"
-          title="You're first!"
-          body={`No one else on ${selectedFlight.code} has joined yet. Check back closer to your departure.`}
-        />
+        // Pausing availability also hides everyone else from you, so say why
+        // rather than implying the flight is empty.
+        session && !session.availableToConnect ? (
+          <EmptyState
+            icon="pause-circle-outline"
+            title="You've paused connecting"
+            body='Turn "Available to connect" back on in your profile to see travelers on this flight.'
+          >
+            <Button kind="primary" size="lg" onPress={() => router.push('/(app)/me')}>
+              Go to profile
+            </Button>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            icon="people-outline"
+            title="You're first!"
+            body={`No one else on ${selectedFlight.code} has joined yet. Check back closer to your departure.`}
+          />
+        )
       ) : (
         <View style={{ gap: 10 }}>
           {people.map((p) => (
