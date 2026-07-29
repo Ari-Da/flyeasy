@@ -7,7 +7,8 @@ import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
-import { FLIGHTS, type Flight } from '@/data/mock';
+import { FLIGHTS } from '@/data/mock';
+import type { Flight } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import { fetchUserFlights, FLIGHT_STATUS } from '@/lib/flights';
 import {

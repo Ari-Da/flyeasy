@@ -3,7 +3,7 @@ import { ActionPill } from '@/components/ui/ActionPill';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
-import type { Flight, Person } from '@/data/mock';
+import type { Flight, Person } from '@/types/models';
 
 export function RequestRow({
   person,

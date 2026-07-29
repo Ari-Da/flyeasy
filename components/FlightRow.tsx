@@ -4,7 +4,7 @@ import { useTheme } from '@/theme';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
-import type { Flight } from '@/data/mock';
+import type { Flight } from '@/types/models';
 
 export function FlightRow({
   flight,

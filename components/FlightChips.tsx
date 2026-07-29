@@ -1,6 +1,6 @@
 import { ScrollView } from 'react-native';
 import { Chip } from '@/components/ui/Chip';
-import type { Flight } from '@/data/mock';
+import type { Flight } from '@/types/models';
 
 /**
  * Horizontal, scrollable row of the user's flights as selectable chips. Shared
