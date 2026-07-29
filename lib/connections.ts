@@ -57,6 +57,35 @@ export async function sendConnectionRequest(targetUserId: string, myFlightId: st
   if (error) throw new Error(error.message);
 }
 
+/** One shared flight between the caller and another user, with the connection
+ * state between them on that flight (null status = not connected yet). */
+export type SharedFlight = {
+  myFlightId: string;
+  connectionId: string | null;
+  status: ConnectionStatus | null;
+  direction: ConnectionDirection | null;
+};
+
+/** Every flight the caller shares with `targetUserId`, each with the per-flight
+ * connection state — powers the traveller profile's flight list. */
+export async function fetchSharedFlights(targetUserId: string): Promise<SharedFlight[]> {
+  const { data, error } = await supabase.rpc('shared_flights_with', {
+    target_user_id: targetUserId,
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{
+    my_flight_id: string;
+    connection_id: string | null;
+    status: ConnectionStatus | null;
+    direction: ConnectionDirection | null;
+  }>).map((r) => ({
+    myFlightId: r.my_flight_id,
+    connectionId: r.connection_id,
+    status: r.status,
+    direction: r.direction,
+  }));
+}
+
 /** Every connection the caller is part of, across all flights. Callers filter
  * by status / direction / flight themselves (one query serves both screens). */
 export async function fetchMyConnections(): Promise<MyConnection[]> {

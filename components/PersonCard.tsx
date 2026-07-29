@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
 import { Verified } from '@/components/ui/Verified';
-import type { Flight, Person } from '@/data/mock';
+import type { Flight, Person } from '@/types/models';
 
 /**
  * The connection state between the signed-in user and this person, on the
@@ -50,8 +50,23 @@ export function PersonCard({
 }) {
   const router = useRouter();
 
+  // Identity comes via params (RLS blocks fetching a stranger's profile, and this
+  // exposes nothing the card didn't already show). The profile fetches the shared
+  // flights itself via shared_flights_with, so no flight data is passed here.
+  const openProfile = () =>
+    router.push({
+      pathname: '/user/[id]',
+      params: {
+        id: person.id,
+        name: person.name,
+        avatar: person.avatarUrl ?? '',
+        bio: person.description ?? '',
+        verified: person.verified ? '1' : '0',
+      },
+    });
+
   return (
-    <Pressable onPress={() => router.push(`/user/${person.id}`)}>
+    <Pressable onPress={openProfile}>
       <Card>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <Avatar size={44} initials={person.initials} uri={person.avatarUrl} />

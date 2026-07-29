@@ -83,7 +83,7 @@ const surfaces = {
   delayedFg: '#6e3a13',
   info: '#4f86b0',
   infoOn: '#ffffff',
-  infoInk: '#1d3a4f',
+  infoInk: '#1f4e79', // dark blue — "Requested you" indicator, "Re-connect" text
   danger: '#c83e2e',
   dangerSoft: '#f4d9d3',
   dangerOn: '#ffffff',

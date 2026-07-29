@@ -6,7 +6,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { ACTIVE_FLIGHT_ID, FLIGHTS, getFlight, peopleOnFlight, type Flight, type Person } from '@/data/mock';
+import { ACTIVE_FLIGHT_ID, FLIGHTS, getFlight, peopleOnFlight } from '@/data/mock';
+import type { Flight, Person } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import {
   fetchMyConnections,
@@ -231,7 +232,7 @@ export default function FindScreen() {
     );
   }
 
-  const people: Person[] = FEATURE_FLAGS.useMockPeople
+  const allPeople: Person[] = FEATURE_FLAGS.useMockPeople
     ? peopleOnFlight(selectedFlight.id)
     : travelers.map((tr) => {
         const fullName = `${tr.firstName} ${tr.lastName}`.trim() || 'Traveler';
@@ -248,7 +249,13 @@ export default function FindScreen() {
           avatarUrl: tr.avatarUrl,
         };
       });
+  // Find is for discovering NEW connections — hide people we're already
+  // connected (accepted) with; they live in Connections/Chat now. Pending and
+  // declined states stay so they can still be acted on here.
+  const people = allPeople.filter((p) => connectStateFor(p.id) !== 'connected');
   const showEmpty = people.length === 0;
+  // Everyone on the flight is already a connection (vs. a genuinely empty flight).
+  const allConnected = showEmpty && allPeople.length > 0;
 
   return (
     <Screen
@@ -291,6 +298,12 @@ export default function FindScreen() {
               Go to profile
             </Button>
           </EmptyState>
+        ) : allConnected ? (
+          <EmptyState
+            icon="checkmark-done-outline"
+            title="You're all connected"
+            body={`You've connected with everyone on ${selectedFlight.code} so far. Check your chats to keep the conversation going.`}
+          />
         ) : (
           <EmptyState
             icon="people-outline"
