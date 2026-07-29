@@ -51,6 +51,9 @@ brand_designs/
 # backend/schema notes
 docs/
 
+# product docs / deliverables (local only)
+documents/
+
 # personal/local notes
 *.local.md
 NOTES.local.md
