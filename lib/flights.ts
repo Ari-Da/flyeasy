@@ -1,4 +1,4 @@
-import type { Flight } from '@/data/mock';
+import type { Flight } from '@/types/models';
 import { supabase } from '@/lib/supabase';
 
 export const FLIGHT_STATUS = {
@@ -128,6 +128,18 @@ export async function fetchFlight(id: string): Promise<Flight | null> {
   if (error) throw new Error(error.message);
   if (!data) return null;
   return dbFlightToFlight(data as DbFlight);
+}
+
+/** Fetch several of the caller's flights by id in one query, keyed by id. Used
+ * by the chat list, whose threads can reference flights that have already
+ * departed (so `fetchUpcomingFlights` wouldn't include them). */
+export async function fetchFlightsByIds(ids: string[]): Promise<Map<string, Flight>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const { data, error } = await supabase.from('flights').select('*').in('id', unique);
+  if (error) throw new Error(error.message);
+  const now = new Date();
+  return new Map((data as DbFlight[]).map((row) => [row.id, dbFlightToFlight(row, now)]));
 }
 
 export async function fetchNextUpcomingFlight(): Promise<Flight | null> {

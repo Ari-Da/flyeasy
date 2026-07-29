@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import { Text } from '@/components/ui/Text';
-import type { Connection, Flight, Person } from '@/data/mock';
+import type { Connection, Flight, Person } from '@/types/models';
 
 export function ConnectionRow({
   person,
@@ -14,9 +14,10 @@ export function ConnectionRow({
   unavailable = false,
 }: {
   person: Person;
-  flight: Flight;
+  flight?: Flight;
   connection: Connection;
-  /** Override default flight subtitle text (e.g. "Departs in 2d", "Closed") */
+  /** Override default flight subtitle text (e.g. "Departs in 2d", "Closed").
+   * Required when `flight` is omitted. */
   flightSubtitle?: string;
   onPress?: () => void;
   /** The other person paused connecting — dim the row. Chat, once it exists,
@@ -27,7 +28,9 @@ export function ConnectionRow({
   const router = useRouter();
 
   const handlePress = onPress ?? (() => router.push(`/chat/${connection.id}`));
-  const subtitle = flightSubtitle ?? `${flight.code} · ${flight.date}`;
+  const base = flightSubtitle ?? (flight ? `${flight.code} · ${flight.date}` : '');
+  // Append the paused/unavailable note; if there's no base text, show it alone.
+  const subtitle = unavailable ? (base ? `${base} · Unavailable` : 'Unavailable') : base;
 
   return (
     <Pressable onPress={handlePress}>
@@ -68,12 +71,19 @@ export function ConnectionRow({
               </Text>
             )}
           </View>
-          <Text variant="monoSm" tone="mute">
-            {unavailable ? `${subtitle} · Unavailable` : subtitle}
-          </Text>
+          {subtitle ? (
+            <Text variant="monoSm" tone="mute">
+              {subtitle}
+            </Text>
+          ) : null}
           <Text
             numberOfLines={1}
-            style={{ fontSize: t.fontSize.small, color: t.colors.inkSoft, fontFamily: t.fontFamily.ui }}
+            style={{
+              fontSize: t.fontSize.small,
+              // Unread → darker + semibold so it reads as "new".
+              color: connection.unread > 0 ? t.colors.ink : t.colors.inkSoft,
+              fontFamily: connection.unread > 0 ? t.fontFamily.uiSemibold : t.fontFamily.ui,
+            }}
           >
             {connection.lastMessage}
           </Text>

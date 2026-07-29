@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -12,15 +12,8 @@ import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { FlightChips } from '@/components/FlightChips';
 import { ConnectionRow } from '@/components/ConnectionRow';
 import { RequestRow } from '@/components/RequestRow';
-import {
-  CONNECTIONS,
-  REQUESTS,
-  getFlight,
-  getPerson,
-  type Connection,
-  type Flight,
-  type Person,
-} from '@/data/mock';
+import { CONNECTIONS, REQUESTS, getFlight, getPerson } from '@/data/mock';
+import type { Connection, Flight, Person } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import {
   fetchMyConnections,
@@ -28,8 +21,14 @@ import {
   withdrawRequest,
   type MyConnection,
 } from '@/lib/connections';
+import { fetchChatThreads, type ChatThread } from '@/lib/chat';
 import { fetchUpcomingFlights } from '@/lib/flights';
+import { relativeTime } from '@/lib/time';
 import { useTheme } from '@/theme';
+
+// INTERIM-POLLING: how often the Connected tab refreshes unread/last-message.
+// Remove when Supabase Realtime lands (see README "Chat delivery — interim polling").
+const UNREAD_POLL_MS = 10000;
 
 type Tab = 'requests' | 'connected';
 
@@ -50,16 +49,16 @@ function toPerson(c: MyConnection): Person {
   };
 }
 
-/** Adapt a connection to the shape ConnectionRow expects. Chat isn't wired yet,
- * so message/time/unread are placeholders until that feature lands. */
-function toConnectionRow(c: MyConnection): Connection {
+/** Adapt a connection to the shape ConnectionRow expects, merging in chat state
+ * (unread count, last message, time) when a thread for it exists. */
+function toConnectionRow(c: MyConnection, chat: ChatThread | undefined, now: Date): Connection {
   return {
     id: c.id,
     personId: c.otherUserId,
     flightId: c.myFlightId,
-    lastMessage: "You're connected.",
-    lastTime: '',
-    unread: 0,
+    lastMessage: chat?.lastMessage ?? "You're connected.",
+    lastTime: relativeTime(chat?.lastMessageAt ?? null, now),
+    unread: chat?.unreadCount ?? 0,
     closed: false,
   };
 }
@@ -109,9 +108,23 @@ export default function ConnectionsScreen() {
   const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const [connections, setConnections] = useState<MyConnection[]>([]);
+  // Chat threads keyed by connection id — supplies unread/last-message for the
+  // Connected tab. Same source as the Chat tab (list_my_chats).
+  const [chats, setChats] = useState<Map<string, ChatThread>>(new Map());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Refresh just the chat threads (unread/last message). Cheap enough to poll.
+  const loadChats = useCallback(async () => {
+    if (FEATURE_FLAGS.useMockPeople) return;
+    try {
+      const threads = await fetchChatThreads();
+      setChats(new Map(threads.map((th) => [th.id, th])));
+    } catch {
+      // Non-fatal: rows just fall back to the "You're connected." placeholder.
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -125,17 +138,43 @@ export default function ConnectionsScreen() {
       setUpcomingFlights(flights);
       setSelectedFlightId((prev) => prev ?? flights[0]?.id ?? null);
       setConnections(conns);
+      loadChats();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load connections.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadChats]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
+  );
+
+  // INTERIM-POLLING: refresh unread/last-message on the Connected tab while
+  // visible. Pauses when backgrounded, stops on blur. Replace with a Supabase
+  // Realtime subscription (see README). Remove this whole block then.
+  useFocusEffect(
+    useCallback(() => {
+      if (FEATURE_FLAGS.useMockPeople) return;
+      let timer: ReturnType<typeof setInterval> | undefined;
+      const start = () => {
+        if (!timer) timer = setInterval(loadChats, UNREAD_POLL_MS);
+      };
+      const stop = () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = undefined;
+        }
+      };
+      start();
+      const sub = AppState.addEventListener('change', (s) => (s === 'active' ? start() : stop()));
+      return () => {
+        stop();
+        sub.remove();
+      };
+    }, [loadChats]),
   );
 
   const respond = async (c: MyConnection, accept: boolean) => {
@@ -216,6 +255,7 @@ export default function ConnectionsScreen() {
   const outgoing = visible.filter((c) => c.status === 'pending' && c.direction === 'outgoing');
   const accepted = visible.filter((c) => c.status === 'accepted');
   const pendingCount = incoming.length + outgoing.length;
+  const now = new Date();
 
   // The flight shown on each row. Real: the selected (shared) flight; every
   // visible connection is on it. Mock: look up the connection's own flight.
@@ -321,11 +361,12 @@ export default function ConnectionsScreen() {
             return (
               <ConnectionRow
                 key={c.id}
-                connection={toConnectionRow(c)}
+                connection={toConnectionRow(c, chats.get(c.id), now)}
                 person={toPerson(c)}
-                flight={flight}
+                // Flight is already shown in the chips above — omit it from the row.
+                flightSubtitle=""
                 unavailable={!c.otherAvailable}
-                onPress={() => router.push(`/user/${c.otherUserId}`)}
+                onPress={() => router.push(`/chat/${c.id}`)}
               />
             );
           })}

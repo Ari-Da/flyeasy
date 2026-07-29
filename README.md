@@ -153,6 +153,32 @@ await supabase.auth.signUp({
 });
 ```
 
+## Chat delivery — interim polling (temporary)
+
+Chat has **no realtime/push yet**. Until it does, new messages are picked up by
+**timer-based polling** while the app is foregrounded:
+
+- **Open thread** (`app/chat/[id].tsx`) — refetches messages every `POLL_MS` (5s).
+- **Chats list** (`app/(app)/chat.tsx`) — refetches threads/unread every `LIST_POLL_MS` (10s).
+- **Connections → Connected tab** (`app/(app)/connections.tsx`) — refetches chat
+  threads for unread badges every `UNREAD_POLL_MS` (10s).
+
+Both pause when the app backgrounds (via `AppState`) and stop on screen blur, so
+they only run when actually visible. A message therefore appears within the poll
+interval, but **only while the recipient has the app open** — nothing reaches a
+closed/backgrounded app (that needs push notifications).
+
+**⚠️ This is a stopgap.** Every polling site is tagged `INTERIM-POLLING` in the
+code — `grep -rn INTERIM-POLLING` to find them all. When we build the real
+delivery:
+
+- **Supabase Realtime** replaces both polls — delete the `INTERIM-POLLING`
+  blocks and subscribe to `messages` inserts (+ `connections` updates for live
+  pause state). Realtime is purely additive to the schema; no DB change needed.
+- **Push notifications** (reaching a closed app) is a separate feature —
+  `expo-notifications` + device-token storage + a DB trigger/edge function on
+  message insert. Not covered by removing the polls.
+
 ## Mock data & dev flags
 
 The flights flow is end-to-end live: enter a flight number + date, AeroDataBox returns the route / times / aircraft, the flight is saved to Supabase scoped to the signed-in user.
