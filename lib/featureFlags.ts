@@ -3,26 +3,23 @@
  *
  * Flip a value here to switch between mock fixtures and real data sources.
  * Changes apply via Fast Refresh — no rebuild needed.
- *
- * Production builds should ignore these and always use the `false` branch
- * (real data) — wire that in when shipping if it ever matters.
  */
 
-export const FEATURE_FLAGS = {
-  /**
-   * `true`  — flight-related screens (flights tab, flight detail, profile counts,
-   *           Find Travelers header) read from `data/mock.ts`.
-   * `false` — read from Supabase. Empty list / "no flights" state when the user
-   *           has nothing in the DB.
-   */
-  useMockFlights: false,
+/**
+ * MOCK-EVERYTHING mode (the `mock_data` branch).
+ *
+ * When `true`, the ENTIRE app runs on the in-memory mock store (`mock/store.ts`)
+ * — auth, flights, find-travelers, requests, connections, chats, profile — and
+ * makes NO Supabase or AeroDataBox calls. For demos, marketing, screenshots and
+ * offline testing. This branch is never merged.
+ *
+ * The individual `useMockFlights` / `useMockPeople` flags derive from it so any
+ * remaining checks keep working; new code should read `mockAll`.
+ */
+const MOCK_ALL = true;
 
-  /**
-   * `true`  — people-related screens (Find Travelers list, Connections requests/list,
-   *           Chat list, chat thread, user profile, flight-detail people preview)
-   *           read from `data/mock.ts`.
-   * `false` — show empty states. There is no DB backing for people/connections/chats
-   *           yet; setting this to `false` exercises the empty-state UX.
-   */
-  useMockPeople: false,
+export const FEATURE_FLAGS = {
+  mockAll: MOCK_ALL,
+  useMockFlights: MOCK_ALL,
+  useMockPeople: MOCK_ALL,
 } as const;

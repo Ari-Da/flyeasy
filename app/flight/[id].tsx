@@ -11,11 +11,11 @@ import { RouteDisplay } from '@/components/ui/RouteDisplay';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { getFlight, peopleOnFlight } from '@/data/mock';
 import type { Flight } from '@/types/models';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
-import { fetchFlight, updateFlightMessage } from '@/lib/flights';
+import { fetchFlight, fetchTravelersOnFlight, updateFlightMessage } from '@/lib/flights';
 import { useTheme } from '@/theme';
+
+type PreviewPerson = { id: string; initials: string; avatarUrl: string | null };
 
 export default function FlightDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,16 +23,15 @@ export default function FlightDetailScreen() {
   const t = useTheme();
   const { session } = useAuth();
 
-  const [flight, setFlight] = useState<Flight | null | undefined>(
-    FEATURE_FLAGS.useMockFlights && id ? (getFlight(id) ?? null) : undefined,
-  );
+  const [flight, setFlight] = useState<Flight | null | undefined>(undefined);
+  const [people, setPeople] = useState<PreviewPerson[]>([]);
 
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
   const [savingMessage, setSavingMessage] = useState(false);
 
   useEffect(() => {
-    if (FEATURE_FLAGS.useMockFlights || !id) return;
+    if (!id) return;
     let active = true;
     fetchFlight(id)
       .then((f) => {
@@ -41,6 +40,18 @@ export default function FlightDetailScreen() {
       .catch(() => {
         if (active) setFlight(null);
       });
+    fetchTravelersOnFlight(id)
+      .then((rows) => {
+        if (!active) return;
+        setPeople(
+          rows.map((tr) => ({
+            id: tr.userId,
+            initials: `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?',
+            avatarUrl: tr.avatarUrl,
+          })),
+        );
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -97,7 +108,6 @@ export default function FlightDetailScreen() {
     );
   }
 
-  const people = FEATURE_FLAGS.useMockPeople ? peopleOnFlight(flight.id) : [];
   const previewCount = Math.min(4, people.length);
   const remaining = people.length - previewCount;
 
@@ -220,7 +230,7 @@ export default function FlightDetailScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {people.slice(0, previewCount).map((p) => (
-              <Avatar key={p.id} size={40} initials={p.initials} />
+              <Avatar key={p.id} size={40} initials={p.initials} uri={p.avatarUrl ?? undefined} />
             ))}
             {remaining > 0 && <Avatar size={40} initials={`+${remaining}`} variant="soft" />}
           </View>

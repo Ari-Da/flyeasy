@@ -12,9 +12,7 @@ import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { FlightChips } from '@/components/FlightChips';
 import { ConnectionRow } from '@/components/ConnectionRow';
 import { RequestRow } from '@/components/RequestRow';
-import { CONNECTIONS, REQUESTS, getFlight, getPerson } from '@/data/mock';
 import type { Connection, Flight, Person } from '@/types/models';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import {
   fetchMyConnections,
   respondToRequest,
@@ -63,40 +61,6 @@ function toConnectionRow(c: MyConnection, chat: ChatThread | undefined, now: Dat
   };
 }
 
-/** Mock-mode fallback: map the mock REQUESTS/CONNECTIONS into the unified shape
- * so the rest of the screen has one code path. */
-function mockConnections(): MyConnection[] {
-  const split = (full: string) => {
-    const [first, ...rest] = full.split(' ');
-    return { first: first ?? '', last: rest.join(' ') };
-  };
-  const requests = REQUESTS.filter((r) => r.status === 'pending')
-    .map((r): MyConnection | null => {
-      const p = getPerson(r.fromPersonId);
-      if (!p) return null;
-      const { first, last } = split(p.name);
-      return {
-        id: r.id, status: 'pending', direction: 'incoming', otherUserId: p.id,
-        firstName: first, lastName: last, description: p.description, avatarUrl: null,
-        otherAvailable: true,
-        myFlightId: p.flightId, message: r.message, createdAt: '',
-      };
-    })
-    .filter((x): x is MyConnection => x !== null);
-  const connected = CONNECTIONS.map((c): MyConnection | null => {
-    const p = getPerson(c.personId);
-    if (!p) return null;
-    const { first, last } = split(p.name);
-    return {
-      id: c.id, status: 'accepted', direction: 'outgoing', otherUserId: p.id,
-      firstName: first, lastName: last, description: p.description, avatarUrl: null,
-      otherAvailable: true,
-      myFlightId: c.flightId, message: null, createdAt: '',
-    };
-  }).filter((x): x is MyConnection => x !== null);
-  return [...requests, ...connected];
-}
-
 export default function ConnectionsScreen() {
   const t = useTheme();
   const router = useRouter();
@@ -117,7 +81,6 @@ export default function ConnectionsScreen() {
 
   // Refresh just the chat threads (unread/last message). Cheap enough to poll.
   const loadChats = useCallback(async () => {
-    if (FEATURE_FLAGS.useMockPeople) return;
     try {
       const threads = await fetchChatThreads();
       setChats(new Map(threads.map((th) => [th.id, th])));
@@ -129,11 +92,6 @@ export default function ConnectionsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      if (FEATURE_FLAGS.useMockPeople) {
-        setUpcomingFlights([]);
-        setConnections(mockConnections());
-        return;
-      }
       const [flights, conns] = await Promise.all([fetchUpcomingFlights(), fetchMyConnections()]);
       setUpcomingFlights(flights);
       setSelectedFlightId((prev) => prev ?? flights[0]?.id ?? null);
@@ -157,7 +115,6 @@ export default function ConnectionsScreen() {
   // Realtime subscription (see README). Remove this whole block then.
   useFocusEffect(
     useCallback(() => {
-      if (FEATURE_FLAGS.useMockPeople) return;
       let timer: ReturnType<typeof setInterval> | undefined;
       const start = () => {
         if (!timer) timer = setInterval(loadChats, UNREAD_POLL_MS);
@@ -178,15 +135,6 @@ export default function ConnectionsScreen() {
   );
 
   const respond = async (c: MyConnection, accept: boolean) => {
-    if (FEATURE_FLAGS.useMockPeople) {
-      // Local only: accept keeps it (as connected), decline drops it.
-      setConnections((prev) =>
-        accept
-          ? prev.map((x) => (x.id === c.id ? { ...x, status: 'accepted' } : x))
-          : prev.filter((x) => x.id !== c.id),
-      );
-      return;
-    }
     setBusyId(c.id);
     try {
       await respondToRequest(c.id, accept);
@@ -200,10 +148,6 @@ export default function ConnectionsScreen() {
 
   /** Undo a request the user sent. Confirmed — it disappears for the other side. */
   const withdraw = (c: MyConnection) => {
-    if (FEATURE_FLAGS.useMockPeople) {
-      setConnections((prev) => prev.filter((x) => x.id !== c.id));
-      return;
-    }
     Alert.alert('Withdraw request?', 'They will no longer see your connection request.', [
       { text: 'Keep', style: 'cancel' },
       {
@@ -249,7 +193,7 @@ export default function ConnectionsScreen() {
   // In real mode, scope to the selected flight chip. In mock mode there are no
   // chips, so everything is shown.
   const visible = connections.filter(
-    (c) => FEATURE_FLAGS.useMockPeople || c.myFlightId === selectedFlightId,
+    (c) => c.myFlightId === selectedFlightId,
   );
   const incoming = visible.filter((c) => c.status === 'pending' && c.direction === 'incoming');
   const outgoing = visible.filter((c) => c.status === 'pending' && c.direction === 'outgoing');
@@ -257,11 +201,10 @@ export default function ConnectionsScreen() {
   const pendingCount = incoming.length + outgoing.length;
   const now = new Date();
 
-  // The flight shown on each row. Real: the selected (shared) flight; every
-  // visible connection is on it. Mock: look up the connection's own flight.
+  // The flight shown on each row is the selected (shared) flight — every visible
+  // connection is on it (they're filtered by selectedFlightId above).
   const selectedFlight = upcomingFlights.find((f) => f.id === selectedFlightId) ?? null;
-  const flightFor = (c: MyConnection): Flight | undefined =>
-    FEATURE_FLAGS.useMockPeople ? getFlight(c.myFlightId) : selectedFlight ?? undefined;
+  const flightFor = (_c: MyConnection): Flight | undefined => selectedFlight ?? undefined;
 
   const options = [
     { value: 'requests', label: `Requests · ${pendingCount}` },

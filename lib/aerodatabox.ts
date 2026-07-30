@@ -1,3 +1,5 @@
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+
 const HOST = 'aerodatabox.p.rapidapi.com';
 const BASE_URL = `https://${HOST}`;
 
@@ -110,9 +112,6 @@ export async function lookupFlight(
   flightNumber: string,
   date: string,
 ): Promise<FlightLookupResult[]> {
-  const key = process.env.EXPO_PUBLIC_AERODATABOX_KEY;
-  if (!key) throw new AeroDataBoxError('Missing EXPO_PUBLIC_AERODATABOX_KEY in .env.local');
-
   const normalized = normalizeFlightNumber(flightNumber);
   if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(normalized)) {
     throw new AeroDataBoxError('Flight number looks invalid (e.g. "BA286" or "AA 204").');
@@ -120,6 +119,31 @@ export async function lookupFlight(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new AeroDataBoxError('Date must be YYYY-MM-DD (e.g. "2026-04-28").');
   }
+
+  // Mock mode: synthesize a plausible SFO→LHR result for the entered flight/date.
+  if (FEATURE_FLAGS.mockAll) {
+    const iata = normalized.slice(0, 2);
+    const num = normalized.slice(2);
+    const dep = new Date(`${date}T19:30:00-07:00`); // ~7:30pm Pacific
+    const arr = new Date(dep.getTime() + 10 * 3_600_000);
+    return [
+      {
+        flightNumber: normalized,
+        airlineIata: iata,
+        airlineName: `${iata} Airways`,
+        aircraftModel: 'Boeing 777-300ER',
+        origin: { iata: 'SFO', name: 'San Francisco Intl', city: 'San Francisco', country: 'US', timezone: 'America/Los_Angeles', lat: null, lon: null, terminal: 'I' },
+        destination: { iata: 'LHR', name: 'London Heathrow', city: 'London', country: 'GB', timezone: 'Europe/London', lat: null, lon: null, terminal: '5' },
+        scheduledDepartureUtc: dep.toISOString(),
+        scheduledArrivalUtc: arr.toISOString(),
+        status: 'Scheduled',
+        raw: { mock: true, num },
+      },
+    ];
+  }
+
+  const key = process.env.EXPO_PUBLIC_AERODATABOX_KEY;
+  if (!key) throw new AeroDataBoxError('Missing EXPO_PUBLIC_AERODATABOX_KEY in .env.local');
 
   // dateLocalRole=Departure: match strictly on the departure date in the origin
   // airport's local timezone. Without it AeroDataBox defaults to matching flights

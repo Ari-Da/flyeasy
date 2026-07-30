@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import * as mock from '@/mock/store';
 
 export type ConnectionStatus = 'pending' | 'accepted' | 'declined';
 
@@ -50,6 +52,7 @@ type RawConnection = {
  * Throws on the unique-constraint violation if a request already exists either way.
  */
 export async function sendConnectionRequest(targetUserId: string, myFlightId: string): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockSendRequest(targetUserId, myFlightId);
   const { error } = await supabase.rpc('send_connection_request', {
     target_user_id: targetUserId,
     my_flight_id: myFlightId,
@@ -69,6 +72,7 @@ export type SharedFlight = {
 /** Every flight the caller shares with `targetUserId`, each with the per-flight
  * connection state — powers the traveller profile's flight list. */
 export async function fetchSharedFlights(targetUserId: string): Promise<SharedFlight[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockSharedFlights(targetUserId);
   const { data, error } = await supabase.rpc('shared_flights_with', {
     target_user_id: targetUserId,
   });
@@ -89,6 +93,7 @@ export async function fetchSharedFlights(targetUserId: string): Promise<SharedFl
 /** Every connection the caller is part of, across all flights. Callers filter
  * by status / direction / flight themselves (one query serves both screens). */
 export async function fetchMyConnections(): Promise<MyConnection[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockMyConnections();
   const { data, error } = await supabase.rpc('list_my_connections');
   if (error) throw new Error(error.message);
   return ((data ?? []) as RawConnection[]).map((r) => ({
@@ -114,6 +119,7 @@ export async function fetchMyConnections(): Promise<MyConnection[]> {
  * and only while the row is still `pending`.
  */
 export async function withdrawRequest(connectionId: string): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockWithdraw(connectionId);
   // `.select()` so we can tell "deleted" from "RLS matched nothing". Without it
   // a policy-blocked delete resolves successfully with zero rows and the caller
   // would report success while nothing happened.
@@ -134,6 +140,7 @@ export async function withdrawRequest(connectionId: string): Promise<void> {
  * only while the row is still `pending`.
  */
 export async function respondToRequest(connectionId: string, accept: boolean): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockRespond(connectionId, accept);
   // `.select()` so a policy-blocked update is distinguishable from a real one —
   // RLS filtering yields zero rows and NO error, which would otherwise look like
   // success. Most likely cause: the responder has paused connecting (the

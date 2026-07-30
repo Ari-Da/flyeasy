@@ -9,9 +9,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { FlightRow } from '@/components/FlightRow';
-import { FLIGHTS } from '@/data/mock';
 import type { Flight } from '@/types/models';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import { deleteFlight, fetchUserFlights, FLIGHT_STATUS, type FlightStatus } from '@/lib/flights';
 import { useTheme } from '@/theme';
 
@@ -36,12 +34,8 @@ export default function FlightsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      if (FEATURE_FLAGS.useMockFlights) {
-        setFlights(FLIGHTS);
-      } else {
-        const rows = await fetchUserFlights();
-        setFlights(rows);
-      }
+      const rows = await fetchUserFlights();
+      setFlights(rows);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load flights.');
     } finally {
@@ -63,9 +57,7 @@ export default function FlightsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            if (!FEATURE_FLAGS.useMockFlights) {
-              await deleteFlight(flight.id);
-            }
+            await deleteFlight(flight.id);
             setFlights((prev) => prev.filter((f) => f.id !== flight.id));
           } catch (e) {
             Alert.alert('Delete failed', e instanceof Error ? e.message : 'Please try again.');

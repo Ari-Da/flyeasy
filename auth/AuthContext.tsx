@@ -1,6 +1,8 @@
 import type { Session as SupabaseSession, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { setSessionPersistence, supabase } from '@/lib/supabase';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import * as mock from '@/mock/store';
 
 export type Session = {
   id: string;
@@ -71,6 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Mock mode: no persisted session — start logged out so the login screen
+    // shows, then sign in with a mock account. No Supabase listeners.
+    if (FEATURE_FLAGS.mockAll) {
+      setSession(mock.mockSession());
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     supabase.auth.getSession().then(async ({ data }) => {
@@ -107,6 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn: AuthContextValue['signIn'] = async (email, password, remember = true) => {
+    if (FEATURE_FLAGS.mockAll) {
+      const next = mock.mockAuthenticate(email, password);
+      setSession(next); // no auth listener in mock mode, so set it here
+      return next;
+    }
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
 
@@ -125,6 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!firstName.trim() || !lastName.trim()) throw new Error('Please enter your full name.');
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
     if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+    if (FEATURE_FLAGS.mockAll) {
+      mock.mockSignUp({ firstName, lastName, email, password });
+      return; // mirror real flow: account created, user proceeds to log in
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -146,6 +166,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (FEATURE_FLAGS.mockAll) {
+      mock.mockSignOut();
+      setSession(null);
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
   };
@@ -155,6 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // then clear the local session. The RPC removes the user's rows and their
   // auth record server-side.
   const deleteAccount: AuthContextValue['deleteAccount'] = async () => {
+    if (FEATURE_FLAGS.mockAll) {
+      mock.mockDeleteAccount();
+      setSession(null);
+      return;
+    }
     const { error } = await supabase.rpc('delete_own_account');
     if (error) throw new Error(error.message);
     // The auth user no longer exists — clear the local session. signOut may
@@ -170,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // "Reset Password" email template ({{ .Token }} = the code this flow uses).
   const requestPasswordReset: AuthContextValue['requestPasswordReset'] = async (email) => {
     if (!isValidEmail(email)) throw new Error('Please enter a valid email.');
+    if (FEATURE_FLAGS.mockAll) return; // no-op in mock (no real email)
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
     if (error) throw new Error(error.message);
   };
@@ -182,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (code.trim().length !== RESET_CODE_LENGTH) {
       throw new Error(`Enter the ${RESET_CODE_LENGTH}-digit code from your email.`);
     }
+    if (FEATURE_FLAGS.mockAll) return; // accept any code in mock
     // Keep the recovery session MEMORY-ONLY. Verifying the code necessarily
     // mints a session (Supabase has no way to change a password without one),
     // but it must never be written to disk — otherwise an app kill mid-reset
@@ -200,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Step 2b: set the password on the current session.
   const updatePassword: AuthContextValue['updatePassword'] = async (newPassword) => {
     if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+    if (FEATURE_FLAGS.mockAll) return; // no-op in mock
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       // Don't echo Supabase's "New password should be different from the old
@@ -215,6 +248,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile: AuthContextValue['updateProfile'] = async (input) => {
+    if (FEATURE_FLAGS.mockAll) {
+      const next = mock.mockUpdateProfile(input);
+      setSession(next);
+      return next;
+    }
     const { data: current } = await supabase.auth.getSession();
     const supaSession = current.session;
     if (!supaSession) throw new Error('Not signed in.');
@@ -243,6 +281,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // save its public URL on the profile. A cache-busting query param is appended
   // so the new photo shows immediately despite the fixed storage path.
   const uploadAvatar: AuthContextValue['uploadAvatar'] = async (localUri) => {
+    if (FEATURE_FLAGS.mockAll) {
+      const next = mock.mockSetAvatar(localUri); // local file uri renders fine in RN
+      setSession(next);
+      return next;
+    }
     const { data: current } = await supabase.auth.getSession();
     const supaSession = current.session;
     if (!supaSession) throw new Error('Not signed in.');
@@ -278,6 +321,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // policy; if absent the delete is ignored and the orphan is overwritten on the
   // next upload (fixed path), so removal still succeeds either way.
   const removeAvatar: AuthContextValue['removeAvatar'] = async () => {
+    if (FEATURE_FLAGS.mockAll) {
+      const next = mock.mockSetAvatar('');
+      setSession(next);
+      return next;
+    }
     const { data: current } = await supabase.auth.getSession();
     const supaSession = current.session;
     if (!supaSession) throw new Error('Not signed in.');

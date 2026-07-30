@@ -7,9 +7,7 @@ import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
-import { FLIGHTS } from '@/data/mock';
 import type { Flight } from '@/types/models';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import { fetchUserFlights, FLIGHT_STATUS } from '@/lib/flights';
 import {
   BACKGROUND_PALETTES,
@@ -35,7 +33,7 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [removingPhoto, setRemovingPhoto] = useState(false);
-  const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
+  const [flights, setFlights] = useState<Flight[]>([]);
 
   const [editingBio, setEditingBio] = useState(false);
   const [bioDraft, setBioDraft] = useState(session?.description ?? '');
@@ -115,10 +113,6 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (FEATURE_FLAGS.useMockFlights) {
-        setFlights(FLIGHTS);
-        return;
-      }
       let active = true;
       fetchUserFlights()
         .then((rows) => {

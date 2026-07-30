@@ -12,6 +12,8 @@ import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { AeroDataBoxError, lookupFlight, type FlightLookupResult } from '@/lib/aerodatabox';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import { mockAddFlight } from '@/mock/store';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/theme';
 
@@ -124,6 +126,11 @@ export default function AddFlightScreen() {
     setNotice(null);
     setBusy(true);
     try {
+      if (FEATURE_FLAGS.mockAll) {
+        mockAddFlight(picked, pnr.trim() || null);
+        router.replace('/(app)/flights');
+        return;
+      }
       const { error: insertErr } = await supabase.from('flights').insert({
         user_id: session.id,
         flight_number: picked.flightNumber,

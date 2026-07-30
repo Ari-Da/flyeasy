@@ -21,7 +21,6 @@ import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { ChatBubble } from '@/components/ChatBubble';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import {
   fetchChatThreads,
   fetchMessages,
@@ -54,7 +53,7 @@ export default function ChatThreadScreen() {
   const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
-    if (!id || FEATURE_FLAGS.useMockPeople) {
+    if (!id) {
       setLoading(false);
       return;
     }
@@ -82,7 +81,7 @@ export default function ChatThreadScreen() {
   // marks read, WITHOUT the loading spinner or not-found handling (a transient
   // network blip during a poll must not blank the screen).
   const refresh = useCallback(async () => {
-    if (!id || FEATURE_FLAGS.useMockPeople) return;
+    if (!id) return;
     try {
       const [threads, msgs] = await Promise.all([fetchChatThreads(), fetchMessages(id)]);
       const th = threads.find((x) => x.id === id);
@@ -105,7 +104,6 @@ export default function ChatThreadScreen() {
   // Realtime subscription on `messages` (see README). Remove this whole block then.
   useFocusEffect(
     useCallback(() => {
-      if (FEATURE_FLAGS.useMockPeople) return;
       let timer: ReturnType<typeof setInterval> | undefined;
       const start = () => {
         if (!timer) timer = setInterval(refresh, POLL_MS);

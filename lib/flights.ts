@@ -1,5 +1,7 @@
 import type { Flight } from '@/types/models';
 import { supabase } from '@/lib/supabase';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import * as mock from '@/mock/store';
 
 export const FLIGHT_STATUS = {
   NEW: 'new',
@@ -108,6 +110,7 @@ export function dbFlightToFlight(row: DbFlight, now: Date = new Date()): Flight 
 }
 
 export async function fetchUserFlights(): Promise<Flight[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockMyFlights();
   const { data, error } = await supabase
     .from('flights')
     .select('*')
@@ -119,6 +122,7 @@ export async function fetchUserFlights(): Promise<Flight[]> {
 }
 
 export async function fetchFlight(id: string): Promise<Flight | null> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockFlightById(id);
   const { data, error } = await supabase
     .from('flights')
     .select('*')
@@ -134,6 +138,7 @@ export async function fetchFlight(id: string): Promise<Flight | null> {
  * by the chat list, whose threads can reference flights that have already
  * departed (so `fetchUpcomingFlights` wouldn't include them). */
 export async function fetchFlightsByIds(ids: string[]): Promise<Map<string, Flight>> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockFlightsByIds(ids);
   const unique = [...new Set(ids)];
   if (unique.length === 0) return new Map();
   const { data, error } = await supabase.from('flights').select('*').in('id', unique);
@@ -143,6 +148,7 @@ export async function fetchFlightsByIds(ids: string[]): Promise<Map<string, Flig
 }
 
 export async function fetchNextUpcomingFlight(): Promise<Flight | null> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockUpcomingFlights()[0] ?? null;
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('flights')
@@ -157,6 +163,7 @@ export async function fetchNextUpcomingFlight(): Promise<Flight | null> {
 }
 
 export async function fetchUpcomingFlights(): Promise<Flight[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockUpcomingFlights();
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('flights')
@@ -170,11 +177,13 @@ export async function fetchUpcomingFlights(): Promise<Flight[]> {
 }
 
 export async function deleteFlight(id: string): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockDeleteFlight(id);
   const { error } = await supabase.from('flights').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
 
 export async function updateFlightMessage(id: string, message: string): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockUpdateFlightMessage(id, message);
   const { error } = await supabase
     .from('flights')
     .update({ flight_message: message })
@@ -193,6 +202,7 @@ export type Traveler = {
 };
 
 export async function fetchTravelersOnFlight(flightId: string): Promise<Traveler[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockTravelersOnFlight(flightId);
   const { data, error } = await supabase.rpc('find_travelers_on_flight', {
     flight_id_param: flightId,
   });

@@ -7,9 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { ACTIVE_FLIGHT_ID, FLIGHTS, getFlight, peopleOnFlight } from '@/data/mock';
 import type { Flight, Person } from '@/types/models';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import {
   fetchMyConnections,
   respondToRequest,
@@ -28,8 +26,6 @@ export default function FindScreen() {
   const t = useTheme();
   const router = useRouter();
   const { session } = useAuth();
-  // Mock-mode only: ephemeral "requested" set. Real mode uses `connections`.
-  const [requested, setRequested] = useState<Set<string>>(new Set());
   const [upcomingFlights, setUpcomingFlights] = useState<Flight[]>([]);
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const [travelers, setTravelers] = useState<Traveler[]>([]);
@@ -44,10 +40,6 @@ export default function FindScreen() {
   const [query, setQuery] = useState('');
 
   const loadTravelers = useCallback(async (flightId: string) => {
-    if (FEATURE_FLAGS.useMockPeople) {
-      setTravelers([]);
-      return;
-    }
     setLoadingTravelers(true);
     try {
       const rows = await fetchTravelersOnFlight(flightId);
@@ -61,7 +53,6 @@ export default function FindScreen() {
 
   // All of the caller's connections (any flight). Filtered per-flight in the UI.
   const loadConnections = useCallback(async () => {
-    if (FEATURE_FLAGS.useMockPeople) return;
     try {
       setConnections(await fetchMyConnections());
     } catch {
@@ -72,13 +63,7 @@ export default function FindScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      let flights: Flight[];
-      if (FEATURE_FLAGS.useMockFlights) {
-        const mockFlight = getFlight(ACTIVE_FLIGHT_ID);
-        flights = mockFlight ? [mockFlight] : FLIGHTS;
-      } else {
-        flights = await fetchUpcomingFlights();
-      }
+      const flights = await fetchUpcomingFlights();
       setUpcomingFlights(flights);
 
       const nextId = flights[0]?.id ?? null;
@@ -120,7 +105,6 @@ export default function FindScreen() {
   }, [connections, selectedFlightId]);
 
   const connectStateFor = (personId: string): ConnectState => {
-    if (FEATURE_FLAGS.useMockPeople) return requested.has(personId) ? 'requested' : 'none';
     const c = connByUser.get(personId);
     if (!c) return 'none';
     if (c.status === 'accepted') return 'connected';
@@ -130,12 +114,8 @@ export default function FindScreen() {
     return c.direction === 'incoming' ? 'reconnect' : 'declined';
   };
 
-  // Send / re-send a request. In mock mode this is just the local toggle.
+  // Send / re-send a request.
   const onConnect = async (personId: string) => {
-    if (FEATURE_FLAGS.useMockPeople) {
-      setRequested((prev) => new Set(prev).add(personId));
-      return;
-    }
     if (!selectedFlightId) return;
     setBusyId(personId);
     try {
@@ -165,14 +145,6 @@ export default function FindScreen() {
   // Undo an outgoing request. Confirmed first — it's destructive from the other
   // person's side (the request disappears from their Requests tab).
   const onWithdraw = (personId: string) => {
-    if (FEATURE_FLAGS.useMockPeople) {
-      setRequested((prev) => {
-        const next = new Set(prev);
-        next.delete(personId);
-        return next;
-      });
-      return;
-    }
     const c = connByUser.get(personId);
     if (!c) return;
     Alert.alert('Withdraw request?', 'They will no longer see your connection request.', [
@@ -236,9 +208,7 @@ export default function FindScreen() {
     );
   }
 
-  const allPeople: Person[] = FEATURE_FLAGS.useMockPeople
-    ? peopleOnFlight(selectedFlight.id)
-    : travelers.map((tr) => {
+  const allPeople: Person[] = travelers.map((tr) => {
         const fullName = `${tr.firstName} ${tr.lastName}`.trim() || 'Traveler';
         const initials = `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?';
         return {

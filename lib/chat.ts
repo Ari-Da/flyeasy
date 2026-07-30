@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import * as mock from '@/mock/store';
 
 /** A chat thread as shown in the list — one per accepted connection, enriched
  * with the other person's profile, the last message, and unread/pause state. */
@@ -60,6 +62,7 @@ function mapMessage(r: RawMessage): Message {
 
 /** All accepted-connection threads for the caller (enriched via list_my_chats). */
 export async function fetchChatThreads(): Promise<ChatThread[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockChatThreads();
   const { data, error } = await supabase.rpc('list_my_chats');
   if (error) throw new Error(error.message);
   return ((data ?? []) as RawThread[]).map((r) => ({
@@ -80,6 +83,7 @@ export async function fetchChatThreads(): Promise<ChatThread[]> {
 /** Messages in a thread, oldest first. `id` breaks ties on equal timestamps so
  * the order is stable. RLS returns only messages in connections you're in. */
 export async function fetchMessages(connectionId: string): Promise<Message[]> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockMessages(connectionId);
   const { data, error } = await supabase
     .from('messages')
     .select('id, connection_id, sender_id, body, created_at')
@@ -96,6 +100,7 @@ export async function fetchMessages(connectionId: string): Promise<Message[]> {
  * (either side), so a frozen send fails loudly rather than silently.
  */
 export async function sendMessage(connectionId: string, body: string): Promise<Message> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockSendMessage(connectionId, body);
   const { data, error } = await supabase.rpc('send_message', { conn_id: connectionId, body });
   if (error) throw new Error(error.message);
   return mapMessage(data as RawMessage);
@@ -104,12 +109,14 @@ export async function sendMessage(connectionId: string, body: string): Promise<M
 /** Pause or resume this chat from the caller's side. Chat is writable only when
  * NEITHER side is paused, so resuming requires every side that paused to clear it. */
 export async function setChatPaused(connectionId: string, paused: boolean): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockSetChatPaused(connectionId, paused);
   const { error } = await supabase.rpc('set_chat_paused', { conn_id: connectionId, paused });
   if (error) throw new Error(error.message);
 }
 
 /** Mark the thread read up to now (resets this user's unread count). */
 export async function markChatRead(connectionId: string): Promise<void> {
+  if (FEATURE_FLAGS.mockAll) return mock.mockMarkChatRead(connectionId);
   const { error } = await supabase.rpc('mark_chat_read', { conn_id: connectionId });
   if (error) throw new Error(error.message);
 }
