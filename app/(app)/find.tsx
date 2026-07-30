@@ -245,7 +245,10 @@ export default function FindScreen() {
           email: '',
           description: tr.flightMessage?.trim() || tr.description || '',
           flightId: tr.matchedFlightId,
-          verified: true,
+          // No real user verification exists yet (planned: boarding-pass / BCBP
+          // check). Kept as a flag so the Verified badge lights up automatically
+          // once we can set this from real data — false means it stays hidden.
+          verified: false,
           avatarUrl: tr.avatarUrl,
         };
       });

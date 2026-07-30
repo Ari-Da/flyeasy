@@ -26,7 +26,7 @@ function toPerson(th: ChatThread): Person {
     email: '',
     description: '',
     flightId: th.myFlightId,
-    verified: true,
+    verified: false, // no real user verification yet — see find.tsx
     avatarUrl: th.avatarUrl,
   };
 }

@@ -24,7 +24,7 @@ export default function AboutScreen() {
       <View style={{ gap: 12, marginTop: 8 }}>
         <Text variant="body" tone="soft">
           Flyeasy connects people travelling on the same flight, so flying solo feels a little less
-          alone. Add your itinerary, see other verified passengers on your exact flight, send connect
+          alone. Add your itinerary, see other passengers on your exact flight, send connect
           requests, and chat until you land.
         </Text>
         <Text variant="body" tone="soft">

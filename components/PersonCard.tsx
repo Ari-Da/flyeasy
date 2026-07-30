@@ -72,6 +72,10 @@ export function PersonCard({
           <Avatar size={44} initials={person.initials} uri={person.avatarUrl} />
           <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
             <Text variant="h3">{person.name}</Text>
+            {/* Shown only when the person is verified. No real user verification
+                exists yet (planned: boarding-pass / BCBP), so `verified` is
+                currently always false and this stays hidden — re-enabled by
+                feeding real data into `person.verified`. */}
             {person.verified && <Verified />}
           </View>
         </View>

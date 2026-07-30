@@ -37,7 +37,7 @@ export default function PrivacyScreen() {
 
       <LegalSection heading="3. How We Share Information">
         <LegalP>
-          With other users: your name, photo, and profile details are visible to other verified
+          With other users: your name, photo, and profile details are visible to other
           passengers on your flights so you can connect. With service providers: we use trusted
           third parties to host data and provide functionality (for example, our backend and
           authentication provider, and a flight-data provider); they process information on our

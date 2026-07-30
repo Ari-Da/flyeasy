@@ -44,7 +44,7 @@ function toPerson(c: MyConnection): Person {
     email: '',
     description: c.description || '',
     flightId: c.myFlightId,
-    verified: true,
+    verified: false, // no real user verification yet — see find.tsx
     avatarUrl: c.avatarUrl,
   };
 }

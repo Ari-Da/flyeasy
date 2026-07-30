@@ -1,6 +1,6 @@
 # Flyeasy
 
-Mobile app that connects people on the same flight, so flying solo feels less alone. Match with verified passengers on your exact flight, send connect requests, and chat until the plane lands — then the conversation goes read-only as flight history.
+Mobile app that connects people on the same flight, so flying solo feels less alone. Match with fellow passengers on your exact flight, send connect requests, and chat until the plane lands — then the conversation goes read-only as flight history.
 
 ## Stack
 

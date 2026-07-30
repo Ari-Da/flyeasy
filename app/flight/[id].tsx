@@ -11,7 +11,6 @@ import { RouteDisplay } from '@/components/ui/RouteDisplay';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { Verified } from '@/components/ui/Verified';
 import { getFlight, peopleOnFlight } from '@/data/mock';
 import type { Flight } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
@@ -109,12 +108,9 @@ export default function FlightDetailScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View style={{ gap: 4 }}>
           <Text variant="h1">{flight.code}</Text>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <Verified />
-            <Text variant="mono" tone="mute">
-              {flight.airline}
-            </Text>
-          </View>
+          <Text variant="mono" tone="mute">
+            {flight.airline}
+          </Text>
         </View>
         <Badge status={flight.status}>{flight.status}</Badge>
       </View>
