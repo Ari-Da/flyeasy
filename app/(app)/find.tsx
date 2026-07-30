@@ -2,6 +2,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { FlightChips } from '@/components/FlightChips';
 import { PersonCard, type ConnectState } from '@/components/PersonCard';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -38,6 +39,9 @@ export default function FindScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingTravelers, setLoadingTravelers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reveal-on-tap name search over the current flight's travelers.
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
 
   const loadTravelers = useCallback(async (flightId: string) => {
     if (FEATURE_FLAGS.useMockPeople) {
@@ -260,12 +264,40 @@ export default function FindScreen() {
   // Everyone on the flight is already a connection (vs. a genuinely empty flight).
   const allConnected = showEmpty && allPeople.length > 0;
 
+  // Name search over the (already flight-scoped) list. Only applies while the
+  // search field is open with a non-empty query.
+  const nameQuery = searching ? query.trim().toLowerCase() : '';
+  const filteredPeople = nameQuery
+    ? people.filter((p) => p.name.toLowerCase().includes(nameQuery))
+    : people;
+
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
+
   return (
     <Screen
       scroll={!showEmpty}
       contentStyle={showEmpty ? { flex: 1 } : undefined}
     >
-      <TopBar title="Find Travelers" rightIcon="search" />
+      <TopBar
+        title="Find Travelers"
+        rightIcon={searching ? 'close' : 'search'}
+        onRightPress={() => (searching ? closeSearch() : setSearching(true))}
+      />
+
+      {searching && (
+        <Input
+          dense
+          icon="search"
+          placeholder="Search travelers by name…"
+          value={query}
+          onChangeText={setQuery}
+          autoFocus
+          autoCorrect={false}
+        />
+      )}
 
       <FlightChips flights={upcomingFlights} selectedId={selectedFlightId} onSelect={onSelectFlight} />
 
@@ -314,9 +346,13 @@ export default function FindScreen() {
             body={`No one else on ${selectedFlight.code} has joined yet. Check back closer to your departure.`}
           />
         )
+      ) : filteredPeople.length === 0 ? (
+        <Text variant="body" tone="mute" align="center" style={{ marginTop: 16 }}>
+          No travelers match “{query.trim()}”.
+        </Text>
       ) : (
         <View style={{ gap: 10 }}>
-          {people.map((p) => (
+          {filteredPeople.map((p) => (
             <PersonCard
               key={p.id}
               person={p}

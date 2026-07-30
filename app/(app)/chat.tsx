@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
+import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { ConnectionRow } from '@/components/ConnectionRow';
 import { fetchChatThreads, type ChatThread } from '@/lib/chat';
@@ -36,6 +38,9 @@ export default function ChatListScreen() {
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [flights, setFlights] = useState<Map<string, Flight>>(new Map());
   const [loading, setLoading] = useState(true);
+  // Reveal-on-tap name search over the chat threads.
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -93,13 +98,49 @@ export default function ChatListScreen() {
   const hasThreads = threads.length > 0;
   const now = new Date();
 
+  const nameQuery = searching ? query.trim().toLowerCase() : '';
+  const filteredThreads = nameQuery
+    ? threads.filter((th) => `${th.firstName} ${th.lastName}`.toLowerCase().includes(nameQuery))
+    : threads;
+
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
+
   return (
     <Screen scroll={hasThreads} contentStyle={hasThreads ? undefined : { flex: 1 }}>
-      <TopBar title="Chats" rightIcon="search" />
+      <TopBar
+        title="Chats"
+        rightIcon={searching ? 'close' : 'search'}
+        onRightPress={() => (searching ? closeSearch() : setSearching(true))}
+      />
 
-      {hasThreads ? (
+      {searching && (
+        <Input
+          dense
+          icon="search"
+          placeholder="Search chats by name…"
+          value={query}
+          onChangeText={setQuery}
+          autoFocus
+          autoCorrect={false}
+        />
+      )}
+
+      {!hasThreads ? (
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="No chats yet"
+          body="Once you connect with someone on a flight, your conversations show up here."
+        />
+      ) : filteredThreads.length === 0 ? (
+        <Text variant="body" tone="mute" align="center" style={{ marginTop: 16 }}>
+          No chats match “{query.trim()}”.
+        </Text>
+      ) : (
         <View>
-          {threads.map((th) => {
+          {filteredThreads.map((th) => {
             const flight = flights.get(th.myFlightId);
             const paused = th.iPaused || th.otherPaused;
             const connection: Connection = {
@@ -127,13 +168,8 @@ export default function ChatListScreen() {
             );
           })}
         </View>
-      ) : (
-        <EmptyState
-          icon="chatbubbles-outline"
-          title="No chats yet"
-          body="Once you connect with someone on a flight, your conversations show up here."
-        />
       )}
     </Screen>
   );
 }
+
