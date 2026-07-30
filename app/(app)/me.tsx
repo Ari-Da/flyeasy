@@ -308,10 +308,10 @@ export default function ProfileScreen() {
               }}
             />
             <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
-              <Button kind="ghost" onPress={cancelName}>
+              <Button kind="ghost" size="sm" onPress={cancelName}>
                 Cancel
               </Button>
-              <Button kind="primary" loading={savingName} onPress={saveName}>
+              <Button kind="primary" size="sm" loading={savingName} onPress={saveName}>
                 Save
               </Button>
             </View>
@@ -386,10 +386,10 @@ export default function ProfileScreen() {
                   {bioDraft.length}/300
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button kind="ghost" onPress={cancelBio}>
+                  <Button kind="ghost" size="sm" onPress={cancelBio}>
                     Cancel
                   </Button>
-                  <Button kind="primary" loading={savingBio} onPress={saveBio}>
+                  <Button kind="primary" size="sm" loading={savingBio} onPress={saveBio}>
                     Save
                   </Button>
                 </View>

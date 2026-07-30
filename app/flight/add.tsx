@@ -152,7 +152,10 @@ export default function AddFlightScreen() {
         pnr: pnr.trim() || null,
         verified: true,
         raw_response: picked.raw,
-        flight_message: session.description ?? '',
+        // Leave empty (not seeded from the bio). Screens fall back to the user's
+        // CURRENT profile bio when this is empty, so a non-customized flight
+        // always reflects the latest bio instead of a stale snapshot.
+        flight_message: '',
       });
       if (insertErr) {
         // 23505 = unique-constraint violation on (user_id, flight_number,

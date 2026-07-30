@@ -156,12 +156,8 @@ export default function FlightDetailScreen() {
             Your message to travelers
           </Text>
           {!editingMessage && (
-            <Pressable onPress={startEditingMessage} hitSlop={6}>
-              <Ionicons
-                name={flight.flightMessage ? 'pencil' : 'add'}
-                size={16}
-                color={t.colors.inkMute}
-              />
+            <Pressable onPress={startEditingMessage} hitSlop={8}>
+              <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
             </Pressable>
           )}
         </View>
@@ -194,27 +190,24 @@ export default function FlightDetailScreen() {
                   {messageDraft.length}/300
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Button kind="ghost" onPress={cancelMessage}>
+                  <Button kind="ghost" size="sm" onPress={cancelMessage}>
                     Cancel
                   </Button>
-                  <Button kind="primary" loading={savingMessage} onPress={saveMessage}>
+                  <Button kind="primary" size="sm" loading={savingMessage} onPress={saveMessage}>
                     Save
                   </Button>
                 </View>
               </View>
             </View>
-          ) : flight.flightMessage ? (
+          ) : flight.flightMessage?.trim() || session?.description?.trim() ? (
+            // Custom per-flight message, or a fallback to the current bio.
             <Text variant="body" tone="soft">
-              {flight.flightMessage}
+              {flight.flightMessage?.trim() || session?.description || ''}
             </Text>
           ) : (
-            <Pressable onPress={startEditingMessage}>
-              <Text variant="body" tone="mute">
-                {session?.description
-                  ? 'Add a message tailored to this flight. We can start from your profile bio.'
-                  : 'Tell others on this flight a bit about you.'}
-              </Text>
-            </Pressable>
+            <Text variant="body" tone="mute">
+              Tell others on this flight a bit about you.
+            </Text>
           )}
         </Card>
       </View>
