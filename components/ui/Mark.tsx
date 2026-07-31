@@ -40,6 +40,7 @@ function darken(hex: string, factor = 0.6): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+
 export function Mark({
   size = 32,
   /** Right ("green") plane — defaults to the selected accent. */
@@ -79,7 +80,7 @@ export function Mark({
         <AnimatedG rotation={leftRotation}>
           <G transform="translate(-1.3,-1.5) rotate(-42)">
             <Path d={PLANE_BODY} fill={leftColor} />
-            <Path d={PLANE_FOLD} fill={leftFoldColor} opacity={0.85} />
+            <Path d={PLANE_FOLD} fill={leftFoldColor} />
           </G>
         </AnimatedG>
       </G>
