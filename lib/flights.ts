@@ -12,6 +12,15 @@ export type FlightStatus = (typeof FLIGHT_STATUS)[keyof typeof FLIGHT_STATUS];
 
 export const FLIGHT_STATUSES = Object.values(FLIGHT_STATUS) as readonly FlightStatus[];
 
+/**
+ * Whether a flight is still "active" — current or in the future — as opposed to
+ * finished (`complete`) or delayed/cancelled (`delayed`). Gates actions that only
+ * make sense before/while flying, like editing your per-flight message.
+ */
+export function isFlightActive(status: FlightStatus): boolean {
+  return status === FLIGHT_STATUS.NEW || status === FLIGHT_STATUS.ONGOING;
+}
+
 export type DbFlight = {
   id: string;
   user_id: string;
