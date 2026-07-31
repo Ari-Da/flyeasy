@@ -48,6 +48,26 @@ app-example
 # design source archive (extracted contents are in _design/)
 Flyeasy.zip
 
+# brand design handoff sources (rasterized outputs are committed, sources are not)
+brand_designs/
+
+# backend/schema notes
+docs/
+
+# product docs / deliverables (local only)
+documents/
+
 # personal/local notes
 *.local.md
 NOTES.local.md
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json
+
+# personal/local notes
+*.local.md
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/settings.json

@@ -2,6 +2,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
+import { Avatar } from '@/components/ui/Avatar';
 import { useTheme } from '@/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -75,11 +76,41 @@ export default function AppTabsLayout() {
         options={{
           title: 'Me',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="person" focused={focused} color={color} />
+            <MeTabIcon focused={focused} color={color} />
           ),
         }}
       />
     </Tabs>
+  );
+}
+
+// The "Me" tab shows the user's profile photo when they have one, falling back
+// to the person icon. A focused avatar gets an accent ring instead of the
+// accent-filled circle, since you can't tint a photo.
+function MeTabIcon({ focused, color }: { focused: boolean; color: string }) {
+  const t = useTheme();
+  const { session } = useAuth();
+  const BOX = 32;
+
+  if (!session?.avatarUrl) {
+    return <TabIcon name="person" focused={focused} color={color} />;
+  }
+
+  const initials = `${session.firstName[0] ?? ''}${session.lastName[0] ?? ''}`.toUpperCase();
+  return (
+    <View
+      style={{
+        width: BOX,
+        height: BOX,
+        borderRadius: BOX / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: focused ? t.colors.accent : 'transparent',
+      }}
+    >
+      <Avatar size={BOX - 6} initials={initials} uri={session.avatarUrl} />
+    </View>
   );
 }
 

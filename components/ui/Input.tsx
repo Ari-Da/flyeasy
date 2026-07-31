@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Pressable,
   TextInput,
   View,
   type StyleProp,
@@ -31,10 +32,13 @@ export function Input({
   value,
   onFocus,
   onBlur,
+  secureTextEntry,
   ...rest
 }: InputProps) {
   const t = useTheme();
   const [focused, setFocused] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const isSecure = !!secureTextEntry && !revealed;
 
   return (
     <View style={[{ gap: 4 }, containerStyle]}>
@@ -61,6 +65,7 @@ export function Input({
         <TextInput
           {...rest}
           value={value}
+          secureTextEntry={isSecure}
           placeholderTextColor={t.colors.inkMute}
           onFocus={(e) => {
             setFocused(true);
@@ -78,6 +83,20 @@ export function Input({
             padding: 0,
           }}
         />
+        {!!secureTextEntry && (
+          <Pressable
+            onPress={() => setRevealed((v) => !v)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons
+              name={revealed ? 'eye-off-outline' : 'eye-outline'}
+              size={18}
+              color={t.colors.inkMute}
+            />
+          </Pressable>
+        )}
       </View>
       {error && (
         <Text variant="caption" style={{ color: t.colors.delayedFg }}>

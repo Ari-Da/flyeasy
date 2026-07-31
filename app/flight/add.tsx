@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { useAuth } from '@/auth/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -9,15 +10,43 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { VerifyBanner } from '@/components/ui/VerifyBanner';
+import { ErrorText } from '@/components/ui/ErrorText';
 import { AeroDataBoxError, lookupFlight, type FlightLookupResult } from '@/lib/aerodatabox';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/theme';
 
 type Step = 'search' | 'pick' | 'confirm';
+
+// Format a Date as YYYY-MM-DD from its LOCAL parts. Avoids toISOString(), which
+// converts to UTC and can shift the day for users in negative-UTC offsets in the
+// evening — making the default/earliest dates off by one. The date the user
+// actively picks in the calendar is already a tz-agnostic string, so only these
+// computed defaults need this.
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function tomorrowYmd(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return ymdLocal(d);
+}
+
+function todayYmd(): string {
+  return ymdLocal(new Date());
+}
+
+function formatYmdPretty(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function formatLocal(utcIso: string, timezone: string | null): string {
@@ -50,18 +79,24 @@ function formatTime(utcIso: string, timezone: string | null): string {
 export default function AddFlightScreen() {
   const router = useRouter();
   const { session } = useAuth();
+  const t = useTheme();
 
   const [step, setStep] = useState<Step>('search');
   const [flightInput, setFlightInput] = useState('');
   const [dateInput, setDateInput] = useState(tomorrowYmd());
+  const [showCalendar, setShowCalendar] = useState(false);
   const [pnr, setPnr] = useState('');
   const [results, setResults] = useState<FlightLookupResult[]>([]);
   const [picked, setPicked] = useState<FlightLookupResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Non-error, informational message (e.g. the flight is already saved). Shown
+  // in a neutral tone rather than the red error style.
+  const [notice, setNotice] = useState<string | null>(null);
 
   const onLookup = async () => {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const matches = await lookupFlight(flightInput, dateInput);
@@ -86,6 +121,7 @@ export default function AddFlightScreen() {
   const onSave = async () => {
     if (!picked || !session) return;
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
       const { error: insertErr } = await supabase.from('flights').insert({
@@ -116,10 +152,17 @@ export default function AddFlightScreen() {
         pnr: pnr.trim() || null,
         verified: true,
         raw_response: picked.raw,
+        // Leave empty (not seeded from the bio). Screens fall back to the user's
+        // CURRENT profile bio when this is empty, so a non-customized flight
+        // always reflects the latest bio instead of a stale snapshot.
+        flight_message: '',
       });
       if (insertErr) {
+        // 23505 = unique-constraint violation on (user_id, flight_number,
+        // scheduled_departure_utc): the user already has this exact flight.
+        // Surface it as a neutral notice, not an error.
         if (insertErr.code === '23505') {
-          setError('You already have this flight saved.');
+          setNotice('This flight is already in your profile.');
         } else {
           setError(insertErr.message);
         }
@@ -138,6 +181,7 @@ export default function AddFlightScreen() {
     setResults([]);
     setPicked(null);
     setError(null);
+    setNotice(null);
   };
 
   const headerTitle = useMemo(() => {
@@ -169,14 +213,16 @@ export default function AddFlightScreen() {
                 onChangeText={setFlightInput}
                 autoCapitalize="characters"
               />
-              <Input
-                label="Departure date (YYYY-MM-DD)"
-                placeholder="2026-04-28"
-                value={dateInput}
-                onChangeText={setDateInput}
-                icon="calendar-outline"
-                autoCapitalize="none"
-              />
+              <Pressable onPress={() => setShowCalendar(true)}>
+                <Input
+                  label="Departure date"
+                  placeholder="Tap to pick a date"
+                  value={formatYmdPretty(dateInput)}
+                  icon="calendar-outline"
+                  editable={false}
+                  pointerEvents="none"
+                />
+              </Pressable>
               <Input
                 label="Booking ref (optional)"
                 placeholder="ABC123"
@@ -188,9 +234,7 @@ export default function AddFlightScreen() {
             </View>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
-              </Text>
+              <ErrorText>{error}</ErrorText>
             )}
 
             <View style={{ marginTop: 20 }}>
@@ -237,6 +281,51 @@ export default function AddFlightScreen() {
           </>
         )}
 
+        <Modal
+          visible={showCalendar}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCalendar(false)}
+        >
+          <Pressable
+            onPress={() => setShowCalendar(false)}
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}
+          >
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.lg,
+                overflow: 'hidden',
+              }}
+            >
+              <Calendar
+                current={dateInput}
+                minDate={todayYmd()}
+                markedDates={{
+                  [dateInput]: { selected: true, selectedColor: t.colors.accent },
+                }}
+                onDayPress={(day) => {
+                  setDateInput(day.dateString);
+                  setShowCalendar(false);
+                }}
+                theme={{
+                  backgroundColor: t.colors.paper,
+                  calendarBackground: t.colors.paper,
+                  textSectionTitleColor: t.colors.inkMute,
+                  dayTextColor: t.colors.ink,
+                  todayTextColor: t.colors.accent,
+                  selectedDayTextColor: '#fff',
+                  selectedDayBackgroundColor: t.colors.accent,
+                  monthTextColor: t.colors.ink,
+                  arrowColor: t.colors.accent,
+                  textDisabledColor: t.colors.rule,
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         {step === 'confirm' && picked && (
           <>
             <Card flat>
@@ -274,8 +363,12 @@ export default function AddFlightScreen() {
             </Card>
 
             {error && (
-              <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-                {error}
+              <ErrorText>{error}</ErrorText>
+            )}
+
+            {notice && (
+              <Text variant="caption" align="center" style={{ color: t.colors.accent }}>
+                {notice}
               </Text>
             )}
 

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native';
+import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -11,10 +12,10 @@ import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { Verified } from '@/components/ui/Verified';
-import { getFlight, peopleOnFlight, type Flight } from '@/data/mock';
+import { getFlight, peopleOnFlight } from '@/data/mock';
+import type { Flight } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
-import { dbFlightToFlight, fetchDbFlight, type DbFlight } from '@/lib/flights';
+import { dbFlightToFlight, fetchDbFlight, updateFlightMessage, type DbFlight } from '@/lib/flights';
 import {
   fetchAirportSuggestions,
   type AirportSuggestion,
@@ -41,11 +42,16 @@ export default function FlightDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const t = useTheme();
+  const { session } = useAuth();
 
   const [flight, setFlight] = useState<Flight | null | undefined>(
     FEATURE_FLAGS.useMockFlights && id ? (getFlight(id) ?? null) : undefined,
   );
   const [dbFlight, setDbFlight] = useState<DbFlight | null>(null);
+
+  const [editingMessage, setEditingMessage] = useState(false);
+  const [messageDraft, setMessageDraft] = useState('');
+  const [savingMessage, setSavingMessage] = useState(false);
 
   useEffect(() => {
     if (FEATURE_FLAGS.useMockFlights || !id) return;
@@ -63,6 +69,37 @@ export default function FlightDetailScreen() {
       active = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!editingMessage) setMessageDraft(flight?.flightMessage ?? '');
+  }, [editingMessage, flight?.flightMessage]);
+
+  const cancelMessage = () => {
+    setMessageDraft(flight?.flightMessage ?? '');
+    setEditingMessage(false);
+  };
+
+  const startEditingMessage = () => {
+    if (!flight) return;
+    const seed = flight.flightMessage?.trim() ? flight.flightMessage : (session?.description ?? '');
+    setMessageDraft(seed ?? '');
+    setEditingMessage(true);
+  };
+
+  const saveMessage = async () => {
+    if (!flight) return;
+    setSavingMessage(true);
+    try {
+      const trimmed = messageDraft.trim();
+      await updateFlightMessage(flight.id, trimmed);
+      setFlight({ ...flight, flightMessage: trimmed });
+      setEditingMessage(false);
+    } catch (e) {
+      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSavingMessage(false);
+    }
+  };
 
   if (flight === undefined) {
     return (
@@ -104,12 +141,9 @@ export default function FlightDetailScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View style={{ gap: 4 }}>
           <Text variant="h1">{flight.code}</Text>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <Verified />
-            <Text variant="mono" tone="mute">
-              {flight.airline}
-            </Text>
-          </View>
+          <Text variant="mono" tone="mute">
+            {flight.airline}
+          </Text>
         </View>
         <Badge status={flight.status}>{flight.status}</Badge>
       </View>
@@ -144,6 +178,68 @@ export default function FlightDetailScreen() {
           </View>
         </View>
       </Card>
+
+      <View style={{ gap: 6 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="section" tone="mute">
+            Your message to travelers
+          </Text>
+          {!editingMessage && (
+            <Pressable onPress={startEditingMessage} hitSlop={8}>
+              <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
+            </Pressable>
+          )}
+        </View>
+        <Card flat>
+          {editingMessage ? (
+            <View style={{ gap: 10 }}>
+              <TextInput
+                value={messageDraft}
+                onChangeText={setMessageDraft}
+                placeholder="Tell other travelers about you for this flight…"
+                placeholderTextColor={t.colors.inkMute}
+                multiline
+                maxLength={300}
+                autoFocus
+                style={{
+                  minHeight: 80,
+                  color: t.colors.ink,
+                  fontFamily: t.fontFamily.ui,
+                  fontSize: t.fontSize.body,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: t.colors.rule,
+                  backgroundColor: t.colors.paper,
+                  borderRadius: t.radius.md,
+                  textAlignVertical: 'top',
+                }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="caption" tone="mute">
+                  {messageDraft.length}/300
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="ghost" size="sm" onPress={cancelMessage}>
+                    Cancel
+                  </Button>
+                  <Button kind="primary" size="sm" loading={savingMessage} onPress={saveMessage}>
+                    Save
+                  </Button>
+                </View>
+              </View>
+            </View>
+          ) : flight.flightMessage?.trim() || session?.description?.trim() ? (
+            // Custom per-flight message, or a fallback to the current bio.
+            <Text variant="body" tone="soft">
+              {flight.flightMessage?.trim() || session?.description || ''}
+            </Text>
+          ) : (
+            <Text variant="body" tone="mute">
+              Tell others on this flight a bit about you.
+            </Text>
+          )}
+        </Card>
+      </View>
 
       <SuggestionsSection dbFlight={dbFlight} flight={flight} />
 

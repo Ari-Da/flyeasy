@@ -40,19 +40,38 @@ export type Palette = {
   delayedBg: string;
   delayedFg: string;
 
+  // Semantic — informational / retry actions (always blue, not theme-driven)
+  info: string;
+  infoOn: string;
+  infoInk: string;
+
+  // Semantic — destructive / declined (always red, not theme-driven)
+  danger: string;
+  dangerSoft: string;
+  dangerOn: string;
+  dangerInk: string;
+
+  // Tonal fills — translucent tints for softer filled actions (accept/decline).
+  // Alpha-based so they sit gently on whatever surface they land on.
+  okTint: string;
+  dangerTint: string;
+  infoTint: string;
+  warnTint: string;
+  accentTint: string;
+
   // Outside-phone / web background (frame color in wireframes)
   canvas: string;
 };
 
 const surfaces = {
-  paper: '#f5f1e8',
-  paper2: '#ebe6d7',
-  paper3: '#e0d9c4',
+  paper: '#f5f1e8', // brand cream — app background
+  paper2: '#efeadd',
+  paper3: '#e6dfce',
   ink: '#1f2420',
-  inkSoft: '#4a4f48',
+  inkSoft: '#4a5560', // brand slate — secondary text
   inkMute: '#8a8d83',
-  rule: '#c8c2ad',
-  ruleSoft: '#d8d2bd',
+  rule: '#e0d9c8', // brand line — borders / dividers
+  ruleSoft: '#ebe5d6',
   line: '#2a2f28',
   ok: '#5a8a4d',
   okSoft: '#c8dcb8',
@@ -62,7 +81,18 @@ const surfaces = {
   newFg: '#1d3a4f',
   delayedBg: '#f6e3d4',
   delayedFg: '#6e3a13',
-  canvas: '#d9d0b8',
+  info: '#4f86b0',
+  infoOn: '#ffffff',
+  infoInk: '#1f4e79', // dark blue — "Requested you" indicator, "Re-connect" text
+  danger: '#c83e2e',
+  dangerSoft: '#f4d9d3',
+  dangerOn: '#ffffff',
+  dangerInk: '#8f2b1f',
+  okTint: 'rgba(90, 138, 77, 0.16)',
+  dangerTint: 'rgba(200, 62, 46, 0.14)',
+  infoTint: 'rgba(79, 134, 176, 0.16)',
+  warnTint: 'rgba(184, 106, 44, 0.16)',
+  canvas: '#e1dbc9',
 } as const;
 
 export const PALETTES = {
@@ -72,6 +102,7 @@ export const PALETTES = {
     accentSoft: '#cfe2ee',
     accentInk: '#1d3a4f',
     accentOn: '#ffffff',
+    accentTint: 'rgba(111, 163, 199, 0.16)',
   },
   green: {
     ...surfaces,
@@ -79,6 +110,7 @@ export const PALETTES = {
     accentSoft: '#c8dcb8',
     accentInk: '#1d3318',
     accentOn: '#ffffff',
+    accentTint: 'rgba(90, 138, 77, 0.16)',
   },
   orange: {
     ...surfaces,
@@ -86,6 +118,7 @@ export const PALETTES = {
     accentSoft: '#f4d8c5',
     accentInk: '#5a2912',
     accentOn: '#ffffff',
+    accentTint: 'rgba(217, 122, 74, 0.16)',
   },
   pink: {
     ...surfaces,
@@ -93,6 +126,7 @@ export const PALETTES = {
     accentSoft: '#f0d4dd',
     accentInk: '#4d1f30',
     accentOn: '#ffffff',
+    accentTint: 'rgba(201, 112, 144, 0.16)',
   },
   purple: {
     ...surfaces,
@@ -100,6 +134,7 @@ export const PALETTES = {
     accentSoft: '#ddcfee',
     accentInk: '#2e1a4a',
     accentOn: '#ffffff',
+    accentTint: 'rgba(140, 107, 177, 0.16)',
   },
   slate: {
     ...surfaces,
@@ -107,12 +142,13 @@ export const PALETTES = {
     accentSoft: '#d8dde2',
     accentInk: '#2a3035',
     accentOn: '#ffffff',
+    accentTint: 'rgba(122, 133, 144, 0.16)',
   },
 } as const satisfies Record<string, Palette>;
 
 export type PaletteName = keyof typeof PALETTES;
 
-export const DEFAULT_PALETTE: PaletteName = 'blue';
+export const DEFAULT_PALETTE: PaletteName = 'green';
 
 /**
  * Background palettes — override the surface tokens (paper / paper2 / paper3, ink shades,
@@ -126,16 +162,16 @@ export type BackgroundPalette = Pick<
 
 export const BACKGROUND_PALETTES = {
   warm: {
-    paper: '#f5f1e8',
-    paper2: '#ebe6d7',
-    paper3: '#e0d9c4',
+    paper: '#f5f1e8', // brand cream
+    paper2: '#efeadd',
+    paper3: '#e6dfce',
     ink: '#1f2420',
-    inkSoft: '#4a4f48',
+    inkSoft: '#4a5560', // brand slate
     inkMute: '#8a8d83',
-    rule: '#c8c2ad',
-    ruleSoft: '#d8d2bd',
+    rule: '#e0d9c8', // brand line
+    ruleSoft: '#ebe5d6',
     line: '#2a2f28',
-    canvas: '#d9d0b8',
+    canvas: '#e1dbc9',
   },
   white: {
     paper: '#ffffff',

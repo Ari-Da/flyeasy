@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
@@ -8,14 +8,19 @@ import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
+import { VerifyBanner } from '@/components/ui/VerifyBanner';
+import { ErrorText } from '@/components/ui/ErrorText';
 
 export default function LogInScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const params = useLocalSearchParams<{ email?: string; justSignedUp?: string; passwordReset?: string }>();
+  const justSignedUp = params.justSignedUp === '1';
+  const passwordReset = params.passwordReset === '1';
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params.email ?? '');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +28,7 @@ export default function LogInScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      await signIn(email, password, remember);
       router.replace('/(app)/find');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -42,6 +47,19 @@ export default function LogInScreen() {
         <TopBar back title="Log in" />
         <Text variant="h2">Welcome back</Text>
 
+        {justSignedUp && (
+          <VerifyBanner icon="mail-outline" tone="info">
+            <Text style={{ fontWeight: '600' }}>Almost there.</Text> Check your inbox to confirm your email
+            {params.email ? ` (${params.email})` : ''}, then log in.
+          </VerifyBanner>
+        )}
+
+        {passwordReset && (
+          <VerifyBanner icon="checkmark">
+            <Text style={{ fontWeight: '600' }}>Password updated.</Text> Log in with your new password.
+          </VerifyBanner>
+        )}
+
         <View style={{ gap: 10, marginTop: 8 }}>
           <Input
             label="Email"
@@ -50,7 +68,11 @@ export default function LogInScreen() {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             keyboardType="email-address"
+            textContentType="username"
+            autoComplete="email"
           />
           <Input
             label="Password"
@@ -59,6 +81,8 @@ export default function LogInScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            textContentType="password"
+            autoComplete="password"
           />
         </View>
 
@@ -72,7 +96,12 @@ export default function LogInScreen() {
               Remember me
             </Text>
           </Pressable>
-          <Pressable hitSlop={6}>
+          <Pressable
+            hitSlop={6}
+            onPress={() =>
+              router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } })
+            }
+          >
             <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
               Forgot?
             </Text>
@@ -80,9 +109,7 @@ export default function LogInScreen() {
         </View>
 
         {error && (
-          <Text variant="caption" align="center" style={{ color: '#a04020' }}>
-            {error}
-          </Text>
+          <ErrorText>{error}</ErrorText>
         )}
 
         <View style={{ gap: 12, marginTop: 20 }}>

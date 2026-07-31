@@ -12,7 +12,9 @@ export function ChatBubble({ fromMe, text }: { fromMe: boolean; text: string }) 
         paddingVertical: 8,
         borderRadius: 16,
         alignSelf: fromMe ? 'flex-end' : 'flex-start',
-        backgroundColor: fromMe ? t.colors.accent : t.colors.paper2,
+        // Incoming: light grey surface (paper3 — a soft grey in both warm and
+        // white background palettes), distinct from the lighter chat canvas.
+        backgroundColor: fromMe ? t.colors.accent : t.colors.paper3,
         borderBottomRightRadius: fromMe ? 4 : 16,
         borderBottomLeftRadius: fromMe ? 16 : 4,
       }}

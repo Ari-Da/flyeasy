@@ -1,6 +1,6 @@
 # Flyeasy
 
-Mobile app that connects people on the same flight, so flying solo feels less alone. Match with verified passengers on your exact flight, send connect requests, and chat until the plane lands — then the conversation goes read-only as flight history.
+Mobile app that connects people on the same flight, so flying solo feels less alone. Match with fellow passengers on your exact flight, send connect requests, and chat until the plane lands — then the conversation goes read-only as flight history.
 
 ## Tech Stack
 
@@ -97,9 +97,9 @@ Run targets: iOS, Android, and Web (`react-native-web ~0.21`) — same codebase,
 - [AeroDataBox](https://aerodatabox.com/) (via RapidAPI) — real-time flight schedule lookup
 - [Anthropic Claude API](https://www.anthropic.com/) (`claude-opus-4-7`) — terminal-aware airport suggestions
 - `@expo/vector-icons` (Ionicons)
-- `expo-font` + `@expo-google-fonts/*` (Fraunces, Inter, JetBrains Mono)
+- `expo-font` + `@expo-google-fonts/*` (Bricolage Grotesque, JetBrains Mono)
 - `@react-native-async-storage/async-storage` (session persistence)
-- `react-native-svg` (logo + splash illustration)
+- `react-native-svg` (in-app logo / mark)
 
 ## Run it
 
@@ -138,7 +138,7 @@ components/
 ├── ui/                   primitives — Button, Input, Avatar, Card, Badge,
 │                         Chip, Toggle, Checkbox, Segmented, TopBar, Screen,
 │                         Text, Verified, VerifyBanner, EmptyState,
-│                         RouteDisplay, Logo, SplashIllo
+│                         RouteDisplay, Logo, Mark
 ├── PersonCard.tsx        person on your flight (Find tab)
 ├── FlightRow.tsx         flight list row (Flights tab)
 ├── RequestRow.tsx        incoming connect request
@@ -171,6 +171,26 @@ Every color, font, and spacing value is a token, with two independent theming ax
 
 Both swap live in **Profile → Theme / Background**. The default at startup comes from `DEFAULT_PALETTE` and `DEFAULT_BACKGROUND` in `theme/palettes.ts`. Adding a new accent palette is a one-line append to `PALETTES`; TypeScript narrows it everywhere automatically.
 
+## Brand & app icons
+
+The app name, logo, and brand colors are single-sourced so a rebrand touches one place.
+
+- **`brand/brand.js`** — the source of truth for app name, bundle ids, and brand colors. `app.config.ts`, the UI components, and the asset generator all import from it. Nothing is hardcoded elsewhere.
+- **`brand_designs/`** — the design handoff: the SVG masters (`brand_designs/icons/*.svg`) plus `brand.json`. **This folder is gitignored and not pushed** — you need it locally only to *regenerate* the images. The generated PNGs themselves are committed, so a fresh clone builds fine without it.
+- **`assets/*.png`** — the icon / splash / favicon PNGs the OS needs. These are **generated**, not hand-edited; `app.config.ts` points at them (iOS light/dark/tinted, Android adaptive layers, light/dark splash).
+
+### Changing the brand
+
+The app icon and native splash must be PNG (the OS renders them before the app starts, so they can't be SVG). One command rebuilds every PNG from the SVG masters:
+
+```bash
+npm run brand:icons     # rasterizes brand_designs/icons/*.svg -> assets/*.png
+```
+
+So to change the logo: edit the SVGs in `brand_designs/icons/`, run the command, then rebuild the app. To change the name/colors, edit `brand/brand.js`. (Generation uses `@resvg/resvg-js`, a dev-only dependency — see `scripts/generate-brand-assets.mjs`.)
+
+The **in-app** logo is a live vector, not a PNG: `components/ui/Mark.tsx` (the two-plane mark) and `components/ui/Logo.tsx` (mark + wordmark). The mark's green plane defaults to the selected accent, so it recolors with **Profile → Theme**; pass `planeColor` to pin it.
+
 ## Auth
 
 `auth/AuthContext.tsx` wraps Supabase Auth with `signIn`, `signUp`, `signOut`. Sessions persist via AsyncStorage and survive app restarts. Row-Level Security on every user-scoped table uses `auth.uid()`, so the client never has to filter by user.
@@ -183,6 +203,71 @@ type Session = {
   email: string;
 };
 ```
+
+### Email confirmation redirect
+
+New signups get a Supabase confirmation email. Clicking the link hits Supabase's
+`/auth/v1/verify` endpoint, which **confirms the email server-side**, then
+redirects the browser to a landing URL. The email is confirmed regardless of
+where the redirect lands — the page is purely informational (the user still logs
+in inside the app; the web page does not sign them in).
+
+**Where the redirect is configured — Supabase Dashboard only.** The redirect
+target is the **Site URL** under _Authentication → URL Configuration_, set to
+`https://flyeasytogether.com/confirmed.html`, which serves the static
+confirmation page in [`web/confirmed.html`](web/confirmed.html) (kept on a path
+rather than the root so the root stays free for a future marketing site).
+`signUp` in `auth/AuthContext.tsx` does **not** pass `emailRedirectTo`, so
+Supabase falls back to this Site URL. There is nothing in the app code that
+controls this redirect — if the confirmation link ever lands somewhere wrong
+(e.g. back on `localhost`), fix it in the dashboard, not the repo.
+
+> Password reset is unaffected: it uses an OTP code flow (`verifyOtp`,
+> `type: 'recovery'`), not a link redirect, so it never reads the Site URL.
+
+**Alternative (not currently used): set it in code.** Passing
+`options.emailRedirectTo` on the `supabase.auth.signUp(...)` call overrides the
+Site URL per-call and makes the target version-controlled and visible in the
+repo. It also lets different flows land on different pages. If you adopt it,
+remember any such URL must also be added to the dashboard **Redirect allow-list**
+or Supabase rejects it:
+
+```ts
+await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: { firstName, lastName },
+    emailRedirectTo: 'https://flyeasytogether.com/confirmed.html', // overrides the Site URL
+  },
+});
+```
+
+## Chat delivery — interim polling (temporary)
+
+Chat has **no realtime/push yet**. Until it does, new messages are picked up by
+**timer-based polling** while the app is foregrounded:
+
+- **Open thread** (`app/chat/[id].tsx`) — refetches messages every `POLL_MS` (5s).
+- **Chats list** (`app/(app)/chat.tsx`) — refetches threads/unread every `LIST_POLL_MS` (10s).
+- **Connections → Connected tab** (`app/(app)/connections.tsx`) — refetches chat
+  threads for unread badges every `UNREAD_POLL_MS` (10s).
+
+Both pause when the app backgrounds (via `AppState`) and stop on screen blur, so
+they only run when actually visible. A message therefore appears within the poll
+interval, but **only while the recipient has the app open** — nothing reaches a
+closed/backgrounded app (that needs push notifications).
+
+**⚠️ This is a stopgap.** Every polling site is tagged `INTERIM-POLLING` in the
+code — `grep -rn INTERIM-POLLING` to find them all. When we build the real
+delivery:
+
+- **Supabase Realtime** replaces both polls — delete the `INTERIM-POLLING`
+  blocks and subscribe to `messages` inserts (+ `connections` updates for live
+  pause state). Realtime is purely additive to the schema; no DB change needed.
+- **Push notifications** (reaching a closed app) is a separate feature —
+  `expo-notifications` + device-token storage + a DB trigger/edge function on
+  message insert. Not covered by removing the polls.
 
 ## Mock data & dev flags
 

@@ -1,6 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,30 +12,131 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme';
 import { Avatar } from '@/components/ui/Avatar';
 import { Text } from '@/components/ui/Text';
+import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
+import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { ChatBubble } from '@/components/ChatBubble';
-import { CHAT_MESSAGES, getConnection, getFlight, getPerson, type ChatMessage } from '@/data/mock';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import {
+  fetchChatThreads,
+  fetchMessages,
+  markChatRead,
+  sendMessage,
+  setChatPaused,
+  type ChatThread,
+  type Message,
+} from '@/lib/chat';
+import { fetchFlight } from '@/lib/flights';
+import type { Flight } from '@/types/models';
+
+// INTERIM-POLLING: how often the open thread refetches messages. Remove when
+// Supabase Realtime lands (see README "Chat delivery — interim polling").
+const POLL_MS = 5000;
 
 export default function ChatThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
-
-  const useMocks = FEATURE_FLAGS.useMockPeople;
-  const connection = useMocks && id ? getConnection(id) : undefined;
-  const person = useMocks && connection ? getPerson(connection.personId) : undefined;
-  const flight = useMocks && connection ? getFlight(connection.flightId) : undefined;
-
-  const [messages, setMessages] = useState<ChatMessage[]>(
-    () => (useMocks && id ? (CHAT_MESSAGES[id] ?? []) : []),
-  );
-  const [draft, setDraft] = useState('');
+  const { session } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
-  if (!connection || !person || !flight) {
+  const [thread, setThread] = useState<ChatThread | null>(null);
+  const [flight, setFlight] = useState<Flight | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!id || FEATURE_FLAGS.useMockPeople) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const [threads, msgs] = await Promise.all([fetchChatThreads(), fetchMessages(id)]);
+      const th = threads.find((x) => x.id === id) ?? null;
+      if (!th) {
+        setNotFound(true);
+        return;
+      }
+      setThread(th);
+      setMessages(msgs);
+      // Fetch flight for header context (may be a past flight — that's fine).
+      fetchFlight(th.myFlightId).then(setFlight).catch(() => {});
+      // Opening the thread clears unread for this side.
+      markChatRead(id).catch(() => {});
+    } catch {
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  // Lightweight refresh used by polling: pulls new messages + pause state and
+  // marks read, WITHOUT the loading spinner or not-found handling (a transient
+  // network blip during a poll must not blank the screen).
+  const refresh = useCallback(async () => {
+    if (!id || FEATURE_FLAGS.useMockPeople) return;
+    try {
+      const [threads, msgs] = await Promise.all([fetchChatThreads(), fetchMessages(id)]);
+      const th = threads.find((x) => x.id === id);
+      if (th) setThread(th);
+      setMessages(msgs);
+      markChatRead(id).catch(() => {});
+    } catch {
+      // Ignore transient poll errors.
+    }
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  // INTERIM-POLLING: auto-refresh the open thread on a timer while visible.
+  // Pauses when the app backgrounds and stops on blur. Replace with a Supabase
+  // Realtime subscription on `messages` (see README). Remove this whole block then.
+  useFocusEffect(
+    useCallback(() => {
+      if (FEATURE_FLAGS.useMockPeople) return;
+      let timer: ReturnType<typeof setInterval> | undefined;
+      const start = () => {
+        if (!timer) timer = setInterval(refresh, POLL_MS);
+      };
+      const stop = () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = undefined;
+        }
+      };
+      start();
+      const sub = AppState.addEventListener('change', (s) => (s === 'active' ? start() : stop()));
+      return () => {
+        stop();
+        sub.remove();
+      };
+    }, [refresh]),
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.colors.paper }}>
+        <TopBar back />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.colors.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (notFound || !thread) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: t.colors.paper }}>
         <TopBar back />
@@ -42,33 +145,55 @@ export default function ChatThreadScreen() {
     );
   }
 
-  const closed = connection.closed;
+  const shortName = thread.firstName || `${thread.firstName} ${thread.lastName}`.trim() || 'Traveler';
+  const initials =
+    `${thread.firstName[0] ?? ''}${thread.lastName[0] ?? ''}`.toUpperCase() || '?';
+  const writable = !thread.iPaused && !thread.otherPaused;
 
-  const send = () => {
+  // The toggle already conveys "I paused", so the banner only speaks to the
+  // OTHER side pausing (which the toggle can't show).
+  const pauseNotice = thread.otherPaused
+    ? thread.iPaused
+      ? 'Chatting is paused on both sides. It resumes when you both turn it back on.'
+      : `${shortName} paused chatting. You can't send messages until they resume.`
+    : null;
+
+  const send = async () => {
     const text = draft.trim();
-    if (!text || closed) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: `tmp-${Date.now()}`, threadId: connection.id, fromMe: true, text },
-    ]);
+    if (!text || !writable || sending) return;
+    setSending(true);
     setDraft('');
-    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    try {
+      const msg = await sendMessage(thread.id, text);
+      setMessages((prev) => [...prev, msg]);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    } catch (e) {
+      setDraft(text); // restore so the text isn't lost
+      // Most likely the other side paused mid-conversation — re-sync state.
+      await load();
+    } finally {
+      setSending(false);
+    }
   };
 
-  const subtitle = (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6, paddingHorizontal: 18 }}>
-      <Text variant="mono">
-        <Text variant="mono" weight="semibold" tone="default">
-          {flight.code}
-        </Text>
-        {' · '}
-        {flight.from}→{flight.to}
-      </Text>
-      <Text variant="mono" tone={closed ? 'mute' : 'okInk'} style={closed ? undefined : { color: t.colors.okInk }}>
-        {closed ? 'Closed' : connection.closesIn ? `closes in ${connection.closesIn}` : 'open'}
-      </Text>
+  const togglePause = async (next: boolean) => {
+    if (pausing) return;
+    setPausing(true);
+    try {
+      await setChatPaused(thread.id, next);
+      await load();
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const subtitle = flight ? (
+    <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 18 }}>
+      <Text variant="mono" weight="semibold">{flight.code}</Text>
+      <Text variant="mono" tone="mute">{flight.from}→{flight.to}</Text>
+      <Text variant="mono" tone="mute">· {flight.dateLong}</Text>
     </View>
-  );
+  ) : undefined;
 
   return (
     <KeyboardAvoidingView
@@ -79,28 +204,61 @@ export default function ChatThreadScreen() {
       <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: t.colors.paper }}>
         <TopBar
           back
-          rightIcon="information-circle-outline"
           title={
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <Avatar size={26} initials={person.initials} />
-              <Text variant="h3">{person.shortName}</Text>
+              <Avatar size={26} initials={initials} uri={thread.avatarUrl} />
+              <Text variant="h3">{shortName}</Text>
             </View>
           }
           subtitle={subtitle}
         />
 
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            paddingHorizontal: 18,
+            paddingVertical: 10,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: t.colors.rule,
+          }}
+        >
+          <View style={{ flex: 1, gap: 1 }}>
+            <Text variant="body" style={{ fontFamily: t.fontFamily.uiMedium }}>
+              Pause chat
+            </Text>
+            <Text variant="caption" tone="mute">
+              When on, neither of you can send — history stays readable.
+            </Text>
+          </View>
+          <Toggle value={thread.iPaused} onChange={togglePause} />
+        </View>
+
+        {pauseNotice && (
+          <View style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
+            <VerifyBanner icon="pause" tone="info">
+              {pauseNotice}
+            </VerifyBanner>
+          </View>
+        )}
+
         <ScrollView
           ref={scrollRef}
-          style={{ flex: 1, backgroundColor: t.colors.paper2 }}
+          style={{ flex: 1, backgroundColor: t.colors.paper }}
           contentContainerStyle={{ padding: 14, gap: 8 }}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
-          <Text variant="monoSm" align="center" tone="mute" style={{ marginVertical: 6 }}>
-            Today
-          </Text>
-          {messages.map((m) => (
-            <ChatBubble key={m.id} fromMe={m.fromMe} text={m.text} />
-          ))}
+          {messages.length === 0 ? (
+            <Text variant="monoSm" align="center" tone="mute" style={{ marginVertical: 12 }}>
+              No messages yet — say hello 👋
+            </Text>
+          ) : (
+            messages.map((m) => (
+              <ChatBubble key={m.id} fromMe={m.senderId === session?.id} text={m.body} />
+            ))
+          )}
         </ScrollView>
 
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: t.colors.paper }}>
@@ -123,15 +281,15 @@ export default function ChatThreadScreen() {
                 borderRadius: t.radius.md,
                 paddingHorizontal: 10,
                 paddingVertical: 8,
-                backgroundColor: t.colors.paper,
+                backgroundColor: writable ? t.colors.paper : t.colors.paper2,
               }}
             >
               <TextInput
                 value={draft}
                 onChangeText={setDraft}
-                placeholder={closed ? 'Chat closed' : 'Message…'}
+                placeholder={writable ? 'Message…' : 'Chatting is paused'}
                 placeholderTextColor={t.colors.inkMute}
-                editable={!closed}
+                editable={writable && !sending}
                 onSubmitEditing={send}
                 style={{
                   color: t.colors.ink,
@@ -143,12 +301,12 @@ export default function ChatThreadScreen() {
             </View>
             <Pressable
               onPress={send}
-              disabled={closed || !draft.trim()}
+              disabled={!writable || !draft.trim() || sending}
               style={({ pressed }) => ({
                 width: 34,
                 height: 34,
                 borderRadius: 17,
-                backgroundColor: closed || !draft.trim() ? t.colors.paper3 : t.colors.accent,
+                backgroundColor: !writable || !draft.trim() ? t.colors.paper3 : t.colors.accent,
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: pressed ? 0.85 : 1,
@@ -157,7 +315,7 @@ export default function ChatThreadScreen() {
               <Ionicons
                 name="arrow-up"
                 size={18}
-                color={closed || !draft.trim() ? t.colors.inkMute : t.colors.accentOn}
+                color={!writable || !draft.trim() ? t.colors.inkMute : t.colors.accentOn}
               />
             </Pressable>
           </View>

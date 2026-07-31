@@ -1,16 +1,14 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { SettingsRow } from '@/components/ui/SettingsRow';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { TopBar } from '@/components/ui/TopBar';
-import { FLIGHTS, type Flight } from '@/data/mock';
+import { FLIGHTS } from '@/data/mock';
+import type { Flight } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
 import { fetchUserFlights, FLIGHT_STATUS } from '@/lib/flights';
 import {
@@ -21,16 +19,99 @@ import {
   type BackgroundName,
   type PaletteName,
 } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 export default function ProfileScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session, signOut, updateProfile, uploadAvatar, removeAvatar } = useAuth();
   const { paletteName, setPalette, backgroundName, setBackground } = useThemeControls();
 
-  const [available, setAvailable] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const [flights, setFlights] = useState<Flight[]>(FEATURE_FLAGS.useMockFlights ? FLIGHTS : []);
+
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioDraft, setBioDraft] = useState(session?.description ?? '');
+  const [savingBio, setSavingBio] = useState(false);
+  const [togglingAvailable, setTogglingAvailable] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const [editingName, setEditingName] = useState(false);
+  const [firstDraft, setFirstDraft] = useState(session?.firstName ?? '');
+  const [lastDraft, setLastDraft] = useState(session?.lastName ?? '');
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    if (!editingBio) setBioDraft(session?.description ?? '');
+  }, [editingBio, session?.description]);
+
+  useEffect(() => {
+    if (!editingName) {
+      setFirstDraft(session?.firstName ?? '');
+      setLastDraft(session?.lastName ?? '');
+    }
+  }, [editingName, session?.firstName, session?.lastName]);
+
+  const cancelName = () => {
+    setFirstDraft(session?.firstName ?? '');
+    setLastDraft(session?.lastName ?? '');
+    setEditingName(false);
+  };
+
+  const saveName = async () => {
+    const fn = firstDraft.trim();
+    const ln = lastDraft.trim();
+    if (!fn || !ln) {
+      Alert.alert('Missing name', 'Please enter both first and last name.');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateProfile({ firstName: fn, lastName: ln });
+      setEditingName(false);
+    } catch (e) {
+      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const onAvailableChange = async (next: boolean) => {
+    if (togglingAvailable) return;
+    setTogglingAvailable(true);
+    try {
+      await updateProfile({ availableToConnect: next });
+    } catch (e) {
+      Alert.alert('Could not update', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setTogglingAvailable(false);
+    }
+  };
+
+  const cancelBio = () => {
+    setBioDraft(session?.description ?? '');
+    setEditingBio(false);
+  };
+
+  const saveBio = async () => {
+    setSavingBio(true);
+    try {
+      await updateProfile({ description: bioDraft.trim() });
+      setEditingBio(false);
+    } catch (e) {
+      Alert.alert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setSavingBio(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -71,6 +152,66 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const onChangePhoto = async () => {
+    // Use the system photo picker (iOS PHPicker / Android photo picker): it's
+    // permission-free and behaves identically under None / Limited / Full photo
+    // access, so no access prompt ever appears. It has no built-in crop UI, so
+    // we auto center-crop to a square ourselves below. We deliberately do NOT
+    // use allowsEditing — see docs/avatar-photo-picker.md for the full reasoning
+    // (the native editor triggers a mistimed access prompt for Limited-access
+    // users).
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+
+    setUploadingPhoto(true);
+    try {
+      // Center-crop to a square, then resize + compress so we're not pushing
+      // multi-MB originals.
+      const side = Math.min(asset.width, asset.height);
+      const rendered = await ImageManipulator.manipulate(asset.uri)
+        .crop({
+          originX: (asset.width - side) / 2,
+          originY: (asset.height - side) / 2,
+          width: side,
+          height: side,
+        })
+        .resize({ width: 512 })
+        .renderAsync();
+      const image = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
+      await uploadAvatar(image.uri);
+    } catch (e) {
+      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const onRemovePhoto = () => {
+    Alert.alert('Remove photo?', 'Your profile will show your initials instead.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setRemovingPhoto(true);
+          try {
+            await removeAvatar();
+          } catch (e) {
+            Alert.alert('Could not remove', e instanceof Error ? e.message : 'Please try again.');
+          } finally {
+            setRemovingPhoto(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const photoBusy = uploadingPhoto || removingPhoto;
+
   const initials = session
     ? `${session.firstName[0] ?? ''}${session.lastName[0] ?? ''}`.toUpperCase()
     : 'RT';
@@ -84,16 +225,106 @@ export default function ProfileScreen() {
 
   return (
     <Screen scroll>
-      <TopBar title="Profile" rightLabel="Edit" onRightPress={() => {}} />
+      <TopBar title="Profile" />
 
       <View style={{ alignItems: 'center', gap: 8, marginTop: -8 }}>
-        <Avatar size={80} initials={initials} />
-        <Pressable hitSlop={6}>
-          <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
-            Change photo
-          </Text>
+        <View>
+          <Avatar size={80} initials={initials} uri={session?.avatarUrl || undefined} />
+          {session?.avatarUrl && !photoBusy && (
+            <Pressable
+              onPress={onRemovePhoto}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Remove profile photo"
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: t.colors.ink,
+                borderWidth: 2,
+                borderColor: t.colors.paper,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="close" size={12} color={t.colors.paper} />
+            </Pressable>
+          )}
+        </View>
+        <Pressable hitSlop={6} onPress={onChangePhoto} disabled={photoBusy}>
+          {photoBusy ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ActivityIndicator size="small" color={t.colors.inkSoft} />
+              <Text variant="body" tone="soft">
+                {uploadingPhoto ? 'Uploading…' : 'Removing…'}
+              </Text>
+            </View>
+          ) : (
+            <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }}>
+              {session?.avatarUrl ? 'Change photo' : 'Add photo'}
+            </Text>
+          )}
         </Pressable>
-        <Text variant="h2">{displayName}</Text>
+        {editingName ? (
+          <View style={{ alignSelf: 'stretch', gap: 10 }}>
+            <TextInput
+              value={firstDraft}
+              onChangeText={setFirstDraft}
+              placeholder="First name"
+              placeholderTextColor={t.colors.inkMute}
+              autoCapitalize="words"
+              maxLength={50}
+              autoFocus
+              style={{
+                color: t.colors.ink,
+                fontFamily: t.fontFamily.ui,
+                fontSize: t.fontSize.body,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: t.colors.rule,
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.md,
+              }}
+            />
+            <TextInput
+              value={lastDraft}
+              onChangeText={setLastDraft}
+              placeholder="Last name"
+              placeholderTextColor={t.colors.inkMute}
+              autoCapitalize="words"
+              maxLength={50}
+              style={{
+                color: t.colors.ink,
+                fontFamily: t.fontFamily.ui,
+                fontSize: t.fontSize.body,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: t.colors.rule,
+                backgroundColor: t.colors.paper,
+                borderRadius: t.radius.md,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+              <Button kind="ghost" size="sm" onPress={cancelName}>
+                Cancel
+              </Button>
+              <Button kind="primary" size="sm" loading={savingName} onPress={saveName}>
+                Save
+              </Button>
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 24 }} />
+            <Text variant="h2">{displayName}</Text>
+            <Pressable onPress={() => setEditingName(true)} hitSlop={8} style={{ marginLeft: 8 }}>
+              <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
+            </Pressable>
+          </View>
+        )}
         <Text variant="mono" tone="mute">
           {email}
         </Text>
@@ -107,19 +338,74 @@ export default function ProfileScreen() {
               Others on your flights can send you requests.
             </Text>
           </View>
-          <Toggle value={available} onChange={setAvailable} />
+          <Toggle value={session?.availableToConnect ?? true} onChange={onAvailableChange} />
         </View>
       </Card>
 
       <View style={{ gap: 6 }}>
-        <Text variant="section" tone="mute">
-          About me
-        </Text>
-        <Card flat>
-          <Text variant="body" tone="soft">
-            Design researcher flying a lot between NYC & Tokyo. Always up to chat about books, coffee, and random
-            airport snacks.
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="section" tone="mute">
+            About me
           </Text>
+          {!editingBio && (
+            <Pressable onPress={() => setEditingBio(true)} hitSlop={6}>
+              <Ionicons
+                name={session?.description ? 'pencil' : 'add'}
+                size={16}
+                color={t.colors.inkMute}
+              />
+            </Pressable>
+          )}
+        </View>
+        <Card flat>
+          {editingBio ? (
+            <View style={{ gap: 10 }}>
+              <TextInput
+                value={bioDraft}
+                onChangeText={setBioDraft}
+                placeholder="A short bio so others know who you are…"
+                placeholderTextColor={t.colors.inkMute}
+                multiline
+                maxLength={300}
+                autoFocus
+                style={{
+                  minHeight: 80,
+                  color: t.colors.ink,
+                  fontFamily: t.fontFamily.ui,
+                  fontSize: t.fontSize.body,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: t.colors.rule,
+                  backgroundColor: t.colors.paper,
+                  borderRadius: t.radius.md,
+                  textAlignVertical: 'top',
+                }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="caption" tone="mute">
+                  {bioDraft.length}/300
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button kind="ghost" size="sm" onPress={cancelBio}>
+                    Cancel
+                  </Button>
+                  <Button kind="primary" size="sm" loading={savingBio} onPress={saveBio}>
+                    Save
+                  </Button>
+                </View>
+              </View>
+            </View>
+          ) : session?.description ? (
+            <Text variant="body" tone="soft">
+              {session.description}
+            </Text>
+          ) : (
+            <Pressable onPress={() => setEditingBio(true)}>
+              <Text variant="body" tone="mute">
+                Add a short bio so others know who you are.
+              </Text>
+            </Pressable>
+          )}
         </Card>
       </View>
 
@@ -137,6 +423,30 @@ export default function ProfileScreen() {
         </Card>
       </Pressable>
 
+      <View>
+        <Button kind="ghost" full tone="danger" loading={signingOut} onPress={handleSignOut}>
+          Sign out
+        </Button>
+      </View>
+
+      <View style={{ height: 1, backgroundColor: t.colors.rule, marginVertical: 8 }} />
+
+      <Pressable
+        onPress={() => setAppearanceOpen((v) => !v)}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+      >
+        <Text variant="section" tone="mute">
+          Appearance
+        </Text>
+        <Ionicons
+          name={appearanceOpen ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={t.colors.inkMute}
+        />
+      </Pressable>
+
+      {appearanceOpen && (
+        <>
       <View style={{ gap: 6 }}>
         <Text variant="section" tone="mute">
           Theme
@@ -215,12 +525,47 @@ export default function ProfileScreen() {
           })}
         </View>
       </View>
+        </>
+      )}
 
-      <View style={{ marginTop: 8 }}>
-        <Button kind="ghost" full loading={signingOut} onPress={handleSignOut} textColor="#c83e2e">
-          Sign out
-        </Button>
-      </View>
+      <View style={{ height: 1, backgroundColor: t.colors.rule, marginVertical: 8 }} />
+
+      <Pressable
+        onPress={() => setSettingsOpen((v) => !v)}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
+      >
+        <Text variant="section" tone="mute">
+          Settings
+        </Text>
+        <Ionicons
+          name={settingsOpen ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={t.colors.inkMute}
+        />
+      </Pressable>
+
+      {settingsOpen && (
+        <View style={{ gap: 2 }}>
+          <SettingsRow icon="information-circle-outline" label="About" onPress={() => router.push('/about')} />
+          <SettingsRow icon="mail-outline" label="Contact us" onPress={() => router.push('/contact')} />
+          <SettingsRow
+            icon="document-text-outline"
+            label="Terms of Service"
+            onPress={() => router.push('/legal/terms')}
+          />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => router.push('/legal/privacy')}
+          />
+          <SettingsRow
+            icon="trash-outline"
+            label="Delete account"
+            danger
+            onPress={() => router.push('/delete-account')}
+          />
+        </View>
+      )}
     </Screen>
   );
 }

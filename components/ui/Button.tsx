@@ -1,8 +1,9 @@
 import { ActivityIndicator, Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
+import { toneColors, type Tone } from '@/theme/tones';
 import { Text } from './Text';
 
-type Kind = 'primary' | 'ghost' | 'secondary' | 'link';
+type Kind = 'primary' | 'tonal' | 'ghost' | 'secondary' | 'link';
 type Size = 'sm' | 'md' | 'lg';
 
 export type ButtonProps = {
@@ -10,12 +11,18 @@ export type ButtonProps = {
   onPress?: () => void;
   kind?: Kind;
   size?: Size;
+  /**
+   * Semantic color. Resolved via theme/tones so green/red/blue match the rest of
+   * the app — prefer this over passing raw colors through `style`/`textColor`.
+   *   primary → solid fill · tonal → soft tint · ghost/link → tinted text
+   */
+  tone?: Tone;
   full?: boolean;
   loading?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   leftIcon?: React.ReactNode;
-  /** Override the computed text + spinner color. */
+  /** Escape hatch — overrides the tone's text + spinner color. */
   textColor?: string;
 };
 
@@ -24,6 +31,7 @@ export function Button({
   onPress,
   kind = 'primary',
   size = 'md',
+  tone = 'accent',
   full,
   loading,
   disabled,
@@ -32,6 +40,7 @@ export function Button({
   textColor,
 }: ButtonProps) {
   const t = useTheme();
+  const c = toneColors(t.colors, tone);
 
   const sizeStyles: Record<Size, ViewStyle> = {
     sm: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
@@ -43,8 +52,13 @@ export function Button({
 
   const kindStyles: Record<Kind, ViewStyle> = {
     primary: {
-      backgroundColor: t.colors.accent,
-      borderColor: t.colors.accent,
+      backgroundColor: c.solid,
+      borderColor: c.solid,
+      borderWidth: 1,
+    },
+    tonal: {
+      backgroundColor: c.tint,
+      borderColor: 'transparent',
       borderWidth: 1,
     },
     secondary: {
@@ -65,13 +79,16 @@ export function Button({
     },
   };
 
+  // Non-accent tones tint their text so a `ghost`/`link` reads as danger etc.;
+  // the default accent tone keeps the original neutral ink.
+  const neutralFg = tone === 'accent' ? t.colors.ink : c.ink;
   const fgColor =
     textColor ??
     (kind === 'primary'
-      ? t.colors.accentOn
-      : kind === 'link'
-        ? t.colors.accentInk
-        : t.colors.ink);
+      ? c.on
+      : kind === 'tonal' || kind === 'link'
+        ? c.ink
+        : neutralFg);
 
   return (
     <Pressable

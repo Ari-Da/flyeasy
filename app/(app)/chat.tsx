@@ -1,56 +1,175 @@
-import { View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, AppState, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
+import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
-import { VerifyBanner } from '@/components/ui/VerifyBanner';
 import { ConnectionRow } from '@/components/ConnectionRow';
-import { CONNECTIONS, getFlight, getPerson } from '@/data/mock';
-import { FEATURE_FLAGS } from '@/lib/featureFlags';
+import { fetchChatThreads, type ChatThread } from '@/lib/chat';
+import { fetchFlightsByIds } from '@/lib/flights';
+import { relativeTime } from '@/lib/time';
+import type { Connection, Flight, Person } from '@/types/models';
+import { useTheme } from '@/theme';
+
+// INTERIM-POLLING: how often the chat list refetches threads/unread. Remove when
+// Supabase Realtime lands (see README "Chat delivery — interim polling").
+const LIST_POLL_MS = 10000;
+
+function toPerson(th: ChatThread): Person {
+  const name = `${th.firstName} ${th.lastName}`.trim() || 'Traveler';
+  const initials = `${th.firstName[0] ?? ''}${th.lastName[0] ?? ''}`.toUpperCase() || '?';
+  return {
+    id: th.otherUserId,
+    name,
+    shortName: th.firstName || name,
+    initials,
+    email: '',
+    description: '',
+    flightId: th.myFlightId,
+    verified: false, // no real user verification yet — see find.tsx
+    avatarUrl: th.avatarUrl,
+  };
+}
 
 export default function ChatListScreen() {
-  const threads = (FEATURE_FLAGS.useMockPeople ? CONNECTIONS : [])
-    .map((c) => {
-      const person = getPerson(c.personId);
-      const flight = getFlight(c.flightId);
-      return person && flight ? { connection: c, person, flight } : null;
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const t = useTheme();
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [flights, setFlights] = useState<Map<string, Flight>>(new Map());
+  const [loading, setLoading] = useState(true);
+  // Reveal-on-tap name search over the chat threads.
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const rows = await fetchChatThreads();
+      setThreads(rows);
+      setFlights(await fetchFlightsByIds(rows.map((r) => r.myFlightId)));
+    } catch {
+      // Leave prior state; the empty/loaded UI still renders.
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  // INTERIM-POLLING: refresh unread badges / last messages on a timer while the
+  // Chats tab is visible. Pauses when backgrounded, stops on blur. Replace with
+  // a Supabase Realtime subscription (see README). Remove this whole block then.
+  useFocusEffect(
+    useCallback(() => {
+      let timer: ReturnType<typeof setInterval> | undefined;
+      const start = () => {
+        if (!timer) timer = setInterval(load, LIST_POLL_MS);
+      };
+      const stop = () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = undefined;
+        }
+      };
+      start();
+      const sub = AppState.addEventListener('change', (s) => (s === 'active' ? start() : stop()));
+      return () => {
+        stop();
+        sub.remove();
+      };
+    }, [load]),
+  );
+
+  if (loading) {
+    return (
+      <Screen contentStyle={{ flex: 1 }}>
+        <TopBar title="Chats" rightIcon="search" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.colors.accent} />
+        </View>
+      </Screen>
+    );
+  }
 
   const hasThreads = threads.length > 0;
+  const now = new Date();
+
+  const nameQuery = searching ? query.trim().toLowerCase() : '';
+  const filteredThreads = nameQuery
+    ? threads.filter((th) => `${th.firstName} ${th.lastName}`.toLowerCase().includes(nameQuery))
+    : threads;
+
+  const closeSearch = () => {
+    setSearching(false);
+    setQuery('');
+  };
 
   return (
     <Screen scroll={hasThreads} contentStyle={hasThreads ? undefined : { flex: 1 }}>
-      <TopBar title="Chats" rightIcon="search" />
+      <TopBar
+        title="Chats"
+        rightIcon={searching ? 'close' : 'search'}
+        onRightPress={() => (searching ? closeSearch() : setSearching(true))}
+      />
 
-      <VerifyBanner icon="information-circle" tone="info">
-        Chats stay open until your shared flight lands. After that, history is read-only.
-      </VerifyBanner>
+      {searching && (
+        <Input
+          dense
+          icon="search"
+          placeholder="Search chats by name…"
+          value={query}
+          onChangeText={setQuery}
+          autoFocus
+          autoCorrect={false}
+        />
+      )}
 
-      {hasThreads ? (
-        <View>
-          {threads.map(({ connection, person, flight }) => (
-            <ConnectionRow
-              key={connection.id}
-              connection={connection}
-              person={person}
-              flight={flight}
-              flightSubtitle={
-                connection.closed
-                  ? `${flight.code} · Closed`
-                  : connection.closesIn
-                    ? `${flight.code} · Departs in ${connection.closesIn.split(' ')[0]}`
-                    : `${flight.code} · ${flight.date}`
-              }
-            />
-          ))}
-        </View>
-      ) : (
+      {!hasThreads ? (
         <EmptyState
           icon="chatbubbles-outline"
           title="No chats yet"
           body="Once you connect with someone on a flight, your conversations show up here."
         />
+      ) : filteredThreads.length === 0 ? (
+        <Text variant="body" tone="mute" align="center" style={{ marginTop: 16 }}>
+          No chats match “{query.trim()}”.
+        </Text>
+      ) : (
+        <View>
+          {filteredThreads.map((th) => {
+            const flight = flights.get(th.myFlightId);
+            const paused = th.iPaused || th.otherPaused;
+            const connection: Connection = {
+              id: th.id,
+              personId: th.otherUserId,
+              flightId: th.myFlightId,
+              lastMessage: th.lastMessage ?? 'Say hi 👋',
+              lastTime: relativeTime(th.lastMessageAt, now),
+              unread: th.unreadCount,
+              closed: false,
+            };
+            const routeLabel = flight ? `${flight.code} · ${flight.from}→${flight.to}` : '';
+            const subtitle = paused
+              ? `${routeLabel}${routeLabel ? ' · ' : ''}Paused`
+              : routeLabel || undefined;
+            return (
+              <ConnectionRow
+                key={th.id}
+                connection={connection}
+                person={toPerson(th)}
+                flight={flight}
+                flightSubtitle={subtitle}
+                unavailable={paused}
+              />
+            );
+          })}
+        </View>
       )}
     </Screen>
   );
 }
+

@@ -5,63 +5,17 @@
  * When the API exists, each `getX()` helper becomes an `await fetch(...)`.
  */
 
-export type { FlightStatus } from '@/lib/flights';
-import type { FlightStatus } from '@/lib/flights';
-
-export type Flight = {
-  id: string;
-  code: string; // "AA 204"
-  airline: string; // "American Airlines"
-  airlineShort: string; // "American"
-  from: string; // "JFK"
-  fromCity: string; // "New York"
-  to: string;
-  toCity: string;
-  date: string; // "JUN 12"
-  dateLong: string; // "Jun 12, 2026"
-  weekday: string; // "TUE"
-  time: string; // "9:20p"
-  timeLong: string; // "9:20 PM"
-  duration: string; // "7h 10m"
-  status: FlightStatus;
-  bookingRef?: string;
-};
-
-export type Person = {
-  id: string;
-  name: string;
-  shortName: string; // "Maya O."
-  initials: string;
-  email: string;
-  description: string;
-  flightId: string;
-  verified: boolean;
-};
-
-export type ConnectionRequest = {
-  id: string;
-  fromPersonId: string;
-  message: string;
-  status: 'pending' | 'sent' | 'accepted' | 'declined';
-};
-
-export type Connection = {
-  id: string;
-  personId: string;
-  flightId: string;
-  lastMessage: string;
-  lastTime: string; // "2h", "1d", "14d"
-  unread: number;
-  closed: boolean; // chat read-only after flight lands
-  closesIn?: string; // "3d 4h"
-};
-
-export type ChatMessage = {
-  id: string;
-  threadId: string;
-  fromMe: boolean;
-  text: string;
-};
+// Domain types live in @/types/models. Re-exported here for now so existing
+// `from '@/data/mock'` type imports keep working during the migration.
+export type {
+  FlightStatus,
+  Flight,
+  Person,
+  ConnectionRequest,
+  Connection,
+  ChatMessage,
+} from '@/types/models';
+import type { Flight, Person, ConnectionRequest, Connection, ChatMessage } from '@/types/models';
 
 // ---------- FLIGHTS ----------
 
@@ -340,7 +294,7 @@ export function getRequestPerson(req: ConnectionRequest): Person | undefined {
 }
 
 /**
- * Active flight context — what flight is currently the "Find People" anchor.
+ * Active flight context — what flight is currently the "Find Travelers" anchor.
  * In real app this would be derived from selected flight in state.
  */
 export const ACTIVE_FLIGHT_ID = 'aa204';
