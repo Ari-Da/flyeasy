@@ -13,9 +13,17 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import { getFlight, peopleOnFlight } from '@/data/mock';
-import type { Flight } from '@/types/models';
+import type { Flight, Person } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
-import { dbFlightToFlight, fetchDbFlight, isFlightActive, updateFlightMessage, type DbFlight } from '@/lib/flights';
+import {
+  dbFlightToFlight,
+  fetchDbFlight,
+  fetchTravelersOnFlight,
+  isFlightActive,
+  updateFlightMessage,
+  type DbFlight,
+  type Traveler,
+} from '@/lib/flights';
 import {
   fetchAirportSuggestions,
   type AirportSuggestion,
@@ -48,6 +56,7 @@ export default function FlightDetailScreen() {
     FEATURE_FLAGS.useMockFlights && id ? (getFlight(id) ?? null) : undefined,
   );
   const [dbFlight, setDbFlight] = useState<DbFlight | null>(null);
+  const [travelers, setTravelers] = useState<Traveler[]>([]);
 
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
@@ -64,6 +73,23 @@ export default function FlightDetailScreen() {
       })
       .catch(() => {
         if (active) setFlight(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // Real "people on this flight" preview via the security-definer RPC. Mock mode
+  // sources them from fixtures below instead, so skip the fetch there.
+  useEffect(() => {
+    if (FEATURE_FLAGS.useMockPeople || !id) return;
+    let active = true;
+    fetchTravelersOnFlight(id)
+      .then((rows) => {
+        if (active) setTravelers(rows);
+      })
+      .catch(() => {
+        if (active) setTravelers([]);
       });
     return () => {
       active = false;
@@ -122,7 +148,25 @@ export default function FlightDetailScreen() {
     );
   }
 
-  const people = FEATURE_FLAGS.useMockPeople ? peopleOnFlight(flight.id) : [];
+  // Mock fixtures when mocking people; otherwise the real travelers from the RPC,
+  // mapped to the same shape the preview renders (mirrors app/(app)/find.tsx).
+  const people: Person[] = FEATURE_FLAGS.useMockPeople
+    ? peopleOnFlight(flight.id)
+    : travelers.map((tr) => {
+        const fullName = `${tr.firstName} ${tr.lastName}`.trim() || 'Traveler';
+        const initials = `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?';
+        return {
+          id: tr.userId,
+          name: fullName,
+          shortName: tr.firstName || fullName,
+          initials,
+          email: '',
+          description: tr.flightMessage?.trim() || tr.description || '',
+          flightId: tr.matchedFlightId,
+          verified: false,
+          avatarUrl: tr.avatarUrl,
+        };
+      });
   const previewCount = Math.min(4, people.length);
   const remaining = people.length - previewCount;
   // Editing the per-flight message only makes sense for a current/upcoming
@@ -251,9 +295,11 @@ export default function FlightDetailScreen() {
             <Text variant="section" tone="mute">
               People on this flight
             </Text>
-            <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }} onPress={() => router.push('/(app)/find')}>
-              See all {people.length}
-            </Text>
+            {remaining > 0 && (
+              <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }} onPress={() => router.push('/(app)/find')}>
+                See all {people.length}
+              </Text>
+            )}
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {people.slice(0, previewCount).map((p) => (
