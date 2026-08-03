@@ -1,7 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -9,13 +9,41 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { RouteDisplay } from '@/components/ui/RouteDisplay';
 import { Screen } from '@/components/ui/Screen';
+import { Segmented } from '@/components/ui/Segmented';
 import { Text } from '@/components/ui/Text';
 import { TopBar } from '@/components/ui/TopBar';
 import type { Flight } from '@/types/models';
-import { fetchFlight, fetchTravelersOnFlight, updateFlightMessage } from '@/lib/flights';
+import {
+  dbFlightToFlight,
+  fetchDbFlight,
+  fetchTravelersOnFlight,
+  isFlightActive,
+  updateFlightMessage,
+  type DbFlight,
+} from '@/lib/flights';
+import {
+  fetchAirportSuggestions,
+  type AirportSuggestion,
+  type SuggestionCategory,
+} from '@/lib/suggestions';
 import { useTheme } from '@/theme';
 
 type PreviewPerson = { id: string; initials: string; avatarUrl: string | null };
+
+type SuggestionMode = 'departing' | 'arriving';
+
+const SUGG_OPTIONS = [
+  { value: 'departing', label: 'Origin' },
+  { value: 'arriving', label: 'Destination' },
+] as const;
+
+const CATEGORY_ICON: Record<SuggestionCategory, keyof typeof Ionicons.glyphMap> = {
+  food: 'restaurant',
+  lounge: 'wine',
+  rest: 'bed',
+  shop: 'bag',
+  attraction: 'star',
+};
 
 export default function FlightDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,6 +53,7 @@ export default function FlightDetailScreen() {
 
   const [flight, setFlight] = useState<Flight | null | undefined>(undefined);
   const [people, setPeople] = useState<PreviewPerson[]>([]);
+  const [dbFlight, setDbFlight] = useState<DbFlight | null>(null);
 
   const [editingMessage, setEditingMessage] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
@@ -33,9 +62,11 @@ export default function FlightDetailScreen() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    fetchFlight(id)
-      .then((f) => {
-        if (active) setFlight(f);
+    fetchDbFlight(id)
+      .then((row) => {
+        if (!active) return;
+        setDbFlight(row);
+        setFlight(row ? dbFlightToFlight(row) : null);
       })
       .catch(() => {
         if (active) setFlight(null);
@@ -67,7 +98,8 @@ export default function FlightDetailScreen() {
   };
 
   const startEditingMessage = () => {
-    if (!flight) return;
+    // Only for current/upcoming flights — no editing a completed or cancelled one.
+    if (!flight || !isFlightActive(flight.status)) return;
     const seed = flight.flightMessage?.trim() ? flight.flightMessage : (session?.description ?? '');
     setMessageDraft(seed ?? '');
     setEditingMessage(true);
@@ -110,9 +142,21 @@ export default function FlightDetailScreen() {
 
   const previewCount = Math.min(4, people.length);
   const remaining = people.length - previewCount;
+  // Editing the per-flight message only makes sense for a current/upcoming
+  // flight — not a completed or cancelled one.
+  const canEditMessage = isFlightActive(flight.status);
 
   return (
-    <Screen contentStyle={{ flexGrow: 1 }}>
+    <Screen
+      edges={['top', 'left', 'right', 'bottom']}
+      footer={
+        <View style={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 8, backgroundColor: t.colors.paper }}>
+          <Button kind="primary" size="lg" full onPress={() => router.push('/(app)/find')}>
+            Find people on this flight
+          </Button>
+        </View>
+      }
+    >
       <TopBar back rightIcon="ellipsis-horizontal" />
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -161,7 +205,7 @@ export default function FlightDetailScreen() {
           <Text variant="section" tone="mute">
             Your message to travelers
           </Text>
-          {!editingMessage && (
+          {!editingMessage && canEditMessage && (
             <Pressable onPress={startEditingMessage} hitSlop={8}>
               <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
             </Pressable>
@@ -218,6 +262,8 @@ export default function FlightDetailScreen() {
         </Card>
       </View>
 
+      <SuggestionsSection dbFlight={dbFlight} flight={flight} />
+
       {people.length > 0 && (
         <>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -237,11 +283,134 @@ export default function FlightDetailScreen() {
         </>
       )}
 
-      <View style={{ flex: 1 }} />
-
-      <Button kind="primary" size="lg" full onPress={() => router.push('/(app)/find')}>
-        Find travelers on this flight
-      </Button>
     </Screen>
+  );
+}
+
+function SuggestionsSection({ dbFlight, flight }: { dbFlight: DbFlight | null; flight: Flight }) {
+  const t = useTheme();
+  const [mode, setMode] = useState<SuggestionMode>('arriving');
+  const [suggestions, setSuggestions] = useState<AirportSuggestion[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const hoursUntilFlight = useMemo(() => {
+    if (!dbFlight) return null;
+    const ms = new Date(dbFlight.scheduled_departure_utc).getTime() - Date.now();
+    if (ms <= 0) return null;
+    return Math.round(ms / (1000 * 60 * 60));
+  }, [dbFlight]);
+
+  function onModeChange(next: SuggestionMode) {
+    setMode(next);
+    setSuggestions(null);
+    setError(null);
+  }
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    setSuggestions(null);
+    try {
+      const ctx = dbFlight
+        ? mode === 'departing'
+          ? {
+              airportIata: dbFlight.origin_iata,
+              airportName: dbFlight.origin_name,
+              airportCity: dbFlight.origin_city,
+              terminal: dbFlight.origin_terminal,
+              mode,
+              hoursUntilFlight,
+            }
+          : {
+              airportIata: dbFlight.destination_iata,
+              airportName: dbFlight.destination_name,
+              airportCity: dbFlight.destination_city,
+              terminal: dbFlight.destination_terminal,
+              mode,
+              hoursUntilFlight,
+            }
+        : {
+            airportIata: mode === 'departing' ? flight.from : flight.to,
+            airportName: mode === 'departing' ? flight.fromCity : flight.toCity,
+            airportCity: mode === 'departing' ? flight.fromCity : flight.toCity,
+            terminal: null,
+            mode,
+            hoursUntilFlight: null,
+          };
+      const result = await fetchAirportSuggestions(ctx);
+      setSuggestions(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text variant="section" tone="mute">
+          Things to do
+        </Text>
+        <Segmented options={SUGG_OPTIONS} value={mode} onChange={onModeChange} />
+      </View>
+
+      {!suggestions && !loading && !error && (
+        <Button kind="secondary" size="md" full onPress={load}>
+          {`Suggest spots at ${mode === 'departing' ? flight.from : flight.to}`}
+        </Button>
+      )}
+
+      {loading && (
+        <Card flat>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <ActivityIndicator color={t.colors.accent} />
+            <Text variant="body" tone="mute">
+              Generating suggestions…
+            </Text>
+          </View>
+        </Card>
+      )}
+
+      {error && (
+        <Card flat>
+          <Text variant="body">{error}</Text>
+          <Button kind="ghost" size="sm" onPress={load}>
+            Try again
+          </Button>
+        </Card>
+      )}
+
+      {suggestions?.map((s, i) => (
+        <Card key={`${s.name}-${i}`}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: t.colors.paper2,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name={CATEGORY_ICON[s.category]} size={16} color={t.colors.ink} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text variant="bodyLg" weight="semibold">
+                {s.name}
+              </Text>
+              <Text variant="body" tone="mute">
+                {s.description}
+              </Text>
+              <Text variant="mono" tone="soft">
+                {s.walkingTime}
+              </Text>
+            </View>
+          </View>
+        </Card>
+      ))}
+    </>
   );
 }

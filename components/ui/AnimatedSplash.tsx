@@ -96,6 +96,10 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
       <Mark
         size={MARK_SIZE}
         planeColor={brandColors.green}
+        // Match the native splash PNG (rasterized from brand_designs/flyeasy-logo.svg),
+        // which uses solid greenDark for the green fold — not the darker computed
+        // darken(green) — so the handoff from the native splash shows no color shift.
+        planeFoldColor={brandColors.greenDark}
         leftRotation={leftRotation}
         rightRotation={rightRotation}
       />

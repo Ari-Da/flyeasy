@@ -10,7 +10,8 @@
  */
 
 import type { Flight } from '@/types/models';
-import type { Traveler } from '@/lib/flights';
+import type { Traveler, DbFlight } from '@/lib/flights';
+import type { AirportSuggestion } from '@/lib/suggestions';
 import type { MyConnection, SharedFlight, ConnectionStatus, ConnectionDirection } from '@/lib/connections';
 import type { ChatThread, Message } from '@/lib/chat';
 import type { FlightLookupResult } from '@/lib/aerodatabox';
@@ -338,6 +339,46 @@ export function mockFlightById(id: string): Flight | null {
   return f && f.userId === me() ? toDisplayFlight(f) : null;
 }
 
+/** Raw `flights`-row shape for the current user, mirroring `fetchDbFlight`.
+ * Fields the mock model doesn't track are filled with sensible nulls. */
+export function mockDbFlightById(id: string): DbFlight | null {
+  const f = flight(id);
+  if (!f || f.userId !== me()) return null;
+  return {
+    id: f.id,
+    user_id: f.userId,
+    flight_number: f.code.replace(/\s+/g, ''),
+    airline_iata: f.code.split(' ')[0] ?? '',
+    airline_name: f.airline,
+    aircraft_model: null,
+    origin_iata: f.from,
+    origin_name: f.fromCity,
+    origin_city: f.fromCity,
+    origin_country: null,
+    origin_timezone: f.fromTz,
+    origin_lat: null,
+    origin_lon: null,
+    origin_terminal: null,
+    destination_iata: f.to,
+    destination_name: f.toCity,
+    destination_city: f.toCity,
+    destination_country: null,
+    destination_timezone: null,
+    destination_lat: null,
+    destination_lon: null,
+    destination_terminal: null,
+    scheduled_departure_utc: f.departsAt.toISOString(),
+    scheduled_arrival_utc: f.arrivesAt.toISOString(),
+    status: null,
+    pnr: f.pnr,
+    verified: false,
+    raw_response: null,
+    flight_message: f.flightMessage,
+    created_at: f.departsAt.toISOString(),
+    updated_at: f.departsAt.toISOString(),
+  };
+}
+
 export function mockFlightsByIds(ids: string[]): Map<string, Flight> {
   const set = new Set(ids);
   const map = new Map<string, Flight>();
@@ -402,6 +443,46 @@ export function mockTravelersOnFlight(myFlightId: string): Traveler[] {
         matchedFlightId: f.id,
       };
     });
+}
+
+// ── Airport suggestions ───────────────────────────────────────────────────────
+/** Stand-in for the LLM "things to do" call. The same list is used for both the
+ * origin and destination airports — mock mode ignores the request context. */
+const MOCK_AIRPORT_SUGGESTIONS: AirportSuggestion[] = [
+  {
+    name: 'Plaza Premium Lounge',
+    category: 'lounge',
+    description: 'Quiet seating, a hot buffet and showers — a solid spot to reset before a long haul.',
+    walkingTime: '~6 min from typical gates',
+  },
+  {
+    name: 'Shake Shack',
+    category: 'food',
+    description: 'Reliable burgers and shakes when you want something quick and familiar airside.',
+    walkingTime: '~4 min from typical gates',
+  },
+  {
+    name: 'GoSleep Pods',
+    category: 'rest',
+    description: 'Enclosed nap pods you can book by the hour to grab some sleep between flights.',
+    walkingTime: '~8 min from typical gates',
+  },
+  {
+    name: 'Duty Free Marketplace',
+    category: 'shop',
+    description: 'Worth a browse for last-minute gifts, local snacks and travel-size essentials.',
+    walkingTime: '~3 min from typical gates',
+  },
+  {
+    name: 'Terminal Observation Deck',
+    category: 'attraction',
+    description: 'Open-air runway views — a nice way to stretch your legs and watch the planes.',
+    walkingTime: '~10 min from typical gates',
+  },
+];
+
+export function mockAirportSuggestions(): AirportSuggestion[] {
+  return MOCK_AIRPORT_SUGGESTIONS;
 }
 
 // ── Connections ──────────────────────────────────────────────────────────────
