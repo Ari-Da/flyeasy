@@ -28,7 +28,7 @@ import {
 } from '@/lib/suggestions';
 import { useTheme } from '@/theme';
 
-type PreviewPerson = { id: string; initials: string; avatarUrl: string | null };
+type PreviewPerson = { id: string; initials: string; shortName: string; avatarUrl: string | null };
 
 type SuggestionMode = 'departing' | 'arriving';
 
@@ -75,11 +75,15 @@ export default function FlightDetailScreen() {
       .then((rows) => {
         if (!active) return;
         setPeople(
-          rows.map((tr) => ({
-            id: tr.userId,
-            initials: `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?',
-            avatarUrl: tr.avatarUrl,
-          })),
+          rows.map((tr) => {
+            const fullName = `${tr.firstName} ${tr.lastName}`.trim() || 'Traveler';
+            return {
+              id: tr.userId,
+              initials: `${tr.firstName[0] ?? ''}${tr.lastName[0] ?? ''}`.toUpperCase() || '?',
+              shortName: tr.firstName || fullName,
+              avatarUrl: tr.avatarUrl,
+            };
+          }),
         );
       })
       .catch(() => {});
@@ -262,26 +266,40 @@ export default function FlightDetailScreen() {
         </Card>
       </View>
 
-      <SuggestionsSection dbFlight={dbFlight} flight={flight} />
-
       {people.length > 0 && (
         <>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text variant="section" tone="mute">
               People on this flight
             </Text>
-            <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }} onPress={() => router.push('/(app)/find')}>
-              See all {people.length}
-            </Text>
+            {remaining > 0 && (
+              <Text variant="body" tone="soft" style={{ textDecorationLine: 'underline' }} onPress={() => router.push('/(app)/find')}>
+                See all {people.length}
+              </Text>
+            )}
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
             {people.slice(0, previewCount).map((p) => (
-              <Avatar key={p.id} size={40} initials={p.initials} uri={p.avatarUrl ?? undefined} />
+              <View key={p.id} style={{ alignItems: 'center', gap: 6, width: 52 }}>
+                <Avatar size={44} initials={p.initials} uri={p.avatarUrl ?? undefined} />
+                <Text variant="caption" tone="soft" numberOfLines={1} style={{ maxWidth: 52, textAlign: 'center' }}>
+                  {p.shortName}
+                </Text>
+              </View>
             ))}
-            {remaining > 0 && <Avatar size={40} initials={`+${remaining}`} variant="soft" />}
+            {remaining > 0 && (
+              <View style={{ alignItems: 'center', gap: 6, width: 52 }}>
+                <Avatar size={44} initials={`+${remaining}`} variant="soft" />
+                <Text variant="caption" tone="mute" numberOfLines={1}>
+                  more
+                </Text>
+              </View>
+            )}
           </View>
         </>
       )}
+
+      <SuggestionsSection dbFlight={dbFlight} flight={flight} />
 
     </Screen>
   );
