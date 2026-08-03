@@ -15,7 +15,7 @@ import { TopBar } from '@/components/ui/TopBar';
 import { getFlight, peopleOnFlight } from '@/data/mock';
 import type { Flight } from '@/types/models';
 import { FEATURE_FLAGS } from '@/lib/featureFlags';
-import { dbFlightToFlight, fetchDbFlight, updateFlightMessage, type DbFlight } from '@/lib/flights';
+import { dbFlightToFlight, fetchDbFlight, isFlightActive, updateFlightMessage, type DbFlight } from '@/lib/flights';
 import {
   fetchAirportSuggestions,
   type AirportSuggestion,
@@ -80,7 +80,8 @@ export default function FlightDetailScreen() {
   };
 
   const startEditingMessage = () => {
-    if (!flight) return;
+    // Only for current/upcoming flights — no editing a completed or cancelled one.
+    if (!flight || !isFlightActive(flight.status)) return;
     const seed = flight.flightMessage?.trim() ? flight.flightMessage : (session?.description ?? '');
     setMessageDraft(seed ?? '');
     setEditingMessage(true);
@@ -124,6 +125,9 @@ export default function FlightDetailScreen() {
   const people = FEATURE_FLAGS.useMockPeople ? peopleOnFlight(flight.id) : [];
   const previewCount = Math.min(4, people.length);
   const remaining = people.length - previewCount;
+  // Editing the per-flight message only makes sense for a current/upcoming
+  // flight — not a completed or cancelled one.
+  const canEditMessage = isFlightActive(flight.status);
 
   return (
     <Screen
@@ -184,7 +188,7 @@ export default function FlightDetailScreen() {
           <Text variant="section" tone="mute">
             Your message to travelers
           </Text>
-          {!editingMessage && (
+          {!editingMessage && canEditMessage && (
             <Pressable onPress={startEditingMessage} hitSlop={8}>
               <Ionicons name="pencil" size={16} color={t.colors.inkMute} />
             </Pressable>
