@@ -48,6 +48,9 @@ app-example
 # design source archive (extracted contents are in _design/)
 Flyeasy.zip
 
+# generated showcase renders — regenerate from _design/Flyeasy Wireframes v3
+_design/showcase/
+
 # brand design handoff sources (rasterized outputs are committed, sources are not)
 brand_designs/
 
