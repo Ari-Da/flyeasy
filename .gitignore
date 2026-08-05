@@ -48,3 +48,6 @@ Flyeasy.zip
 # personal/local notes
 *.local.md
 NOTES.local.md
+
+# design working files — wireframes, showcase renders, website source (local only)
+_design/
