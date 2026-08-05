@@ -71,3 +71,6 @@ NOTES.local.md
 # Claude Code local settings
 .claude/settings.local.json
 .claude/settings.json
+
+# design working files — wireframes, showcase renders, website source (local only)
+_design/
