@@ -55,7 +55,9 @@ export type Connection = {
   lastMessage: string;
   lastTime: string; // "2h", "1d", "14d"
   unread: number;
-  closed: boolean; // chat read-only after flight lands
+  /** Reserved: would make a thread read-only. Currently always false — nothing
+   * closes a thread, and the chat screen does not read this field. */
+  closed: boolean;
   closesIn?: string; // "3d 4h"
 };
 

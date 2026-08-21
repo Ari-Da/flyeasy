@@ -1,6 +1,6 @@
 # Flyeasy
 
-Mobile app that connects people on the same flight, so flying solo feels less alone. Match with fellow passengers on your exact flight, send connect requests, and chat until the plane lands — then the conversation goes read-only as flight history.
+Mobile app that connects people on the same flight, so flying solo feels less alone. Match with fellow passengers on your exact flight, send connect requests, and chat once you're both connected.
 
 ## Tech Stack
 
@@ -73,7 +73,7 @@ Run targets: iOS, Android, and Web (`react-native-web ~0.21`) — same codebase,
 
 #### Anthropic Claude API — airport suggestions
 
-- **Model**: `claude-opus-4-7`. Direct HTTPS POST to `https://api.anthropic.com/v1/messages`.
+- **Model**: `claude-haiku-4-5`. Direct HTTPS POST to `https://api.anthropic.com/v1/messages`.
 - **Auth**: `EXPO_PUBLIC_ANTHROPIC_API_KEY`, plus `anthropic-dangerous-direct-browser-access: true` (acknowledges this is a non-Node client).
 - **Wrapper** at [lib/suggestions.ts](lib/suggestions.ts) — `fetchAirportSuggestions(ctx)` builds a system prompt with the desired JSON shape, sends a user message describing the airport/terminal/time-to-flight, parses Claude's JSON response, and returns a typed `AirportSuggestion[]`.
 - **Why fetch (not the SDK)**: `@anthropic-ai/sdk` has known runtime quirks under Hermes/Metro. One HTTP call doesn't need the SDK; the future server-side proxy will.
@@ -95,7 +95,7 @@ Run targets: iOS, Android, and Web (`react-native-web ~0.21`) — same codebase,
 - [`expo-router`](https://docs.expo.dev/router/introduction/) — file-based navigation
 - [Supabase](https://supabase.com/) — Postgres + Auth, with Row-Level Security
 - [AeroDataBox](https://aerodatabox.com/) (via RapidAPI) — real-time flight schedule lookup
-- [Anthropic Claude API](https://www.anthropic.com/) (`claude-opus-4-7`) — terminal-aware airport suggestions
+- [Anthropic Claude API](https://www.anthropic.com/) (`claude-haiku-4-5`) — terminal-aware airport suggestions
 - `@expo/vector-icons` (Ionicons)
 - `expo-font` + `@expo-google-fonts/*` (Bricolage Grotesque, JetBrains Mono)
 - `@react-native-async-storage/async-storage` (session persistence)
