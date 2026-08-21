@@ -30,6 +30,11 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: IOS_BUNDLE_ID,
+    // No non-exempt encryption beyond HTTPS — lets TestFlight builds skip the
+    // export-compliance questionnaire on every upload.
+    config: {
+      usesNonExemptEncryption: false,
+    },
     // iOS 18 appearance variants — light/dark/tinted, supported since SDK 56.
     // @expo/config-types lags the runtime schema here, so cast the object form.
     icon: {
@@ -79,6 +84,14 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
+  },
+  // EAS project link. `eas init` can't write into a dynamic config, so the id it
+  // printed lives here by hand. Owner is the account the project belongs to.
+  owner: 'ari-da',
+  extra: {
+    eas: {
+      projectId: 'e3fb18e1-c784-4d02-9a9e-657993fc674e',
+    },
   },
 };
 
