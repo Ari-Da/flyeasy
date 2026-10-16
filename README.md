@@ -66,19 +66,37 @@ Run targets: iOS, Android, and Web (`react-native-web ~0.21`) — same codebase,
 #### AeroDataBox (RapidAPI) — flight schedule lookup
 
 - **[AeroDataBox](https://aerodatabox.com/)** via RapidAPI. Generous free tier; provides flight number → route, times (UTC + IANA timezones), aircraft, terminal, and live status.
-- **Auth**: API key in `EXPO_PUBLIC_AERODATABOX_KEY`. RapidAPI host header `aerodatabox.p.rapidapi.com`.
-- **Wrapper** at [lib/aerodatabox.ts](lib/aerodatabox.ts) — `lookupFlight(flightNumber, date)` hits `GET /flights/number/{n}/{d}`, normalizes the response (parses `"2026-04-28 02:30Z"` → ISO 8601, flattens nested airport blobs, strips spaces in flight numbers), and returns `FlightLookupResult[]`. Typed errors for network / 401 / 404 / 429.
+- **Auth**: API key held as the `AERODATABOX_KEY` secret of the `flight-lookup` Edge Function ([supabase/functions/flight-lookup](supabase/functions/flight-lookup)); the app never sees it. RapidAPI host header `aerodatabox.p.rapidapi.com`.
+- **Wrapper** at [lib/aerodatabox.ts](lib/aerodatabox.ts) — `lookupFlight(flightNumber, date)` calls the Edge Function (which hits `GET /flights/number/{n}/{d}`) via [lib/edgeFunctions.ts](lib/edgeFunctions.ts), normalizes the response (parses `"2026-04-28 02:30Z"` → ISO 8601, flattens nested airport blobs, strips spaces in flight numbers), and returns `FlightLookupResult[]`. Typed errors for network / 401 / 404 / 429.
 - **Used by**: the 3-step add-flight wizard in [app/flight/add.tsx](app/flight/add.tsx) — *Search → Pick → Confirm → INSERT into Supabase*.
-- **Future server-side proxy**: `EXPO_PUBLIC_*` ships in the JS bundle; before any public release the call should move into a Supabase Edge Function so the key stays secret. Tracked in [NOTES.local.md](NOTES.local.md).
+- **Server-side proxy**: the Edge Function requires a signed-in user (rejects the anon key), validates input, and returns the raw AeroDataBox list.
 
 #### Anthropic Claude API — airport suggestions
 
-- **Model**: `claude-haiku-4-5`. Direct HTTPS POST to `https://api.anthropic.com/v1/messages`.
-- **Auth**: `EXPO_PUBLIC_ANTHROPIC_API_KEY`, plus `anthropic-dangerous-direct-browser-access: true` (acknowledges this is a non-Node client).
-- **Wrapper** at [lib/suggestions.ts](lib/suggestions.ts) — `fetchAirportSuggestions(ctx)` builds a system prompt with the desired JSON shape, sends a user message describing the airport/terminal/time-to-flight, parses Claude's JSON response, and returns a typed `AirportSuggestion[]`.
-- **Why fetch (not the SDK)**: `@anthropic-ai/sdk` has known runtime quirks under Hermes/Metro. One HTTP call doesn't need the SDK; the future server-side proxy will.
+- **Model**: `claude-haiku-4-5`. Called server-side by the `airport-suggestions` Edge Function ([supabase/functions/airport-suggestions](supabase/functions/airport-suggestions)) via HTTPS POST to `https://api.anthropic.com/v1/messages`.
+- **Auth**: `ANTHROPIC_API_KEY` secret on the Edge Function; never in the app bundle. The function also owns the system prompt and model, and requires a signed-in user.
+- **Wrapper** at [lib/suggestions.ts](lib/suggestions.ts) — `fetchAirportSuggestions(ctx)` sends the airport/terminal/time-to-flight context to the Edge Function, parses Claude's JSON response, and returns a typed `AirportSuggestion[]`.
+- **Why fetch (not the SDK)**: `@anthropic-ai/sdk` has known runtime quirks under Hermes/Metro. One HTTP call doesn't need the SDK.
 - **Used by**: the *Things to do* section in [app/flight/[id].tsx](app/flight/[id].tsx). Origin/Destination toggle picks which airport to query; results render as cards with category icons.
-- **Future server-side proxy**: same as AeroDataBox — move to a Supabase Edge Function so the key isn't in the bundle. Caching `(airport, terminal, layover_bucket) → suggestions` in a Supabase table is the obvious next win, since most users at JFK T4 get the same answer.
+- **Next win**: caching `(airport, terminal, layover_bucket) → suggestions` in a Supabase table is the obvious next win, since most users at JFK T4 get the same answer.
+
+### Edge Functions — keeping API keys out of the app
+
+Third-party keys (AeroDataBox, Anthropic) never ship in the app bundle. `EXPO_PUBLIC_*` values are inlined into the JS, so anything secret lives in Supabase Edge Function secrets instead, and the app calls the functions through [lib/edgeFunctions.ts](lib/edgeFunctions.ts).
+
+- **Auth**: functions deploy with JWT verification on, and additionally reject the anon key (it carries no user). Only signed-in users can call them.
+- **Least privilege**: each function validates and length-limits its input, pins its own model / prompt / `max_tokens`, and never forwards upstream 401/403s to the client. None use the `service_role` key.
+- **The only keys in the app** are `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`. The anon key is public by design; Row-Level Security is what protects data. Never put the `service_role` key in the app or in EAS env vars.
+- **Deploy** (one-time link, then per change):
+
+  ```
+  npx supabase login
+  npx supabase link --project-ref <ref>
+  npx supabase secrets set AERODATABOX_KEY=... ANTHROPIC_API_KEY=...
+  npx supabase functions deploy flight-lookup airport-suggestions
+  ```
+
+- **Not yet built**: per-user rate limiting / quotas. Set a spend limit on the Anthropic key in the meantime.
 
 ### Build, dev, and tooling
 
@@ -115,11 +133,16 @@ Required env in `.env.local`:
 ```
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-EXPO_PUBLIC_AERODATABOX_KEY=...
-EXPO_PUBLIC_ANTHROPIC_API_KEY=...
 ```
 
-The Anthropic key powers the LLM-based "Things to do" suggestions on the flight detail screen. Get one at <https://console.anthropic.com/settings/keys>.
+Third-party keys are Supabase Edge Function secrets, not app env vars. Set them once with:
+
+```
+npx supabase secrets set AERODATABOX_KEY=... ANTHROPIC_API_KEY=... --project-ref <ref>
+npx supabase functions deploy flight-lookup airport-suggestions --project-ref <ref>
+```
+
+The Anthropic key powers the "Things to do" suggestions. Get one at <https://console.anthropic.com/settings/keys>.
 
 ## Project layout
 
@@ -147,7 +170,9 @@ components/
 
 lib/                      data + service layer
 ├── supabase.ts           Supabase client
-├── aerodatabox.ts        AeroDataBox lookup service + types
+├── edgeFunctions.ts      callEdgeFunction() — invokes Supabase Edge Functions as the signed-in user
+├── aerodatabox.ts        AeroDataBox lookup service + types (via the flight-lookup function)
+├── suggestions.ts        airport suggestions client (via the airport-suggestions function)
 ├── flights.ts            flights domain — fetchers, mappers, FLIGHT_STATUS
 └── featureFlags.ts       dev toggles: useMockFlights, useMockPeople
 
@@ -156,6 +181,11 @@ theme/
 ├── tokens.ts             spacing, radius, font sizes/families
 ├── ThemeProvider.tsx     context + useTheme() / useThemeControls()
 └── index.ts              public exports
+
+supabase/functions/       Edge Functions (Deno) that hold third-party API keys
+├── _shared/http.ts       CORS + signed-in-user check shared by every function
+├── flight-lookup/        AeroDataBox proxy
+└── airport-suggestions/  Anthropic proxy
 
 auth/AuthContext.tsx      Supabase Auth wrapper (signIn / signUp / signOut)
 data/mock.ts              bundled fixtures for dev mode

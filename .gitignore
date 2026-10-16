@@ -74,3 +74,13 @@ NOTES.local.md
 # Claude Code local settings
 .claude/settings.local.json
 .claude/settings.json
+
+# Supabase CLI / Edge Functions (local secrets and link state)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+supabase/.env.*
+supabase/functions/.env
+supabase/functions/.env.*
+.env
+supabase/config.toml

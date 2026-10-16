@@ -1,5 +1,7 @@
-const HOST = 'aerodatabox.p.rapidapi.com';
-const BASE_URL = `https://${HOST}`;
+import { callEdgeFunction, EdgeFunctionError } from '@/lib/edgeFunctions';
+
+// The AeroDataBox key lives in the `flight-lookup` Edge Function's secrets
+// (supabase/functions/flight-lookup); the app never sees it.
 
 export type AirportInfo = {
   iata: string;
@@ -110,9 +112,6 @@ export async function lookupFlight(
   flightNumber: string,
   date: string,
 ): Promise<FlightLookupResult[]> {
-  const key = process.env.EXPO_PUBLIC_AERODATABOX_KEY;
-  if (!key) throw new AeroDataBoxError('Missing EXPO_PUBLIC_AERODATABOX_KEY in .env.local');
-
   const normalized = normalizeFlightNumber(flightNumber);
   if (!/^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/.test(normalized)) {
     throw new AeroDataBoxError('Flight number looks invalid (e.g. "BA286" or "AA 204").');
@@ -121,36 +120,18 @@ export async function lookupFlight(
     throw new AeroDataBoxError('Date must be YYYY-MM-DD (e.g. "2026-04-28").');
   }
 
-  // dateLocalRole=Departure: match strictly on the departure date in the origin
-  // airport's local timezone. Without it AeroDataBox defaults to matching flights
-  // that depart OR arrive on the date, so an overnight flight (departs evening,
-  // lands next day) surfaces twice — once for the prior day's departure that
-  // arrives on the searched date. Users enter their departure date, so we anchor
-  // on departure only.
-  const url = `${BASE_URL}/flights/number/${encodeURIComponent(normalized)}/${encodeURIComponent(date)}?withAircraftImage=false&withLocation=true&dateLocalRole=Departure`;
-
-  let res: Response;
+  let flights: RawFlight[];
   try {
-    res = await fetch(url, {
-      headers: { 'x-rapidapi-host': HOST, 'x-rapidapi-key': key },
+    const res = await callEdgeFunction<{ flights: RawFlight[] }>('flight-lookup', {
+      flightNumber: normalized,
+      date,
     });
-  } catch {
-    throw new AeroDataBoxError('Network error — check your connection and try again.');
+    flights = res.flights;
+  } catch (e) {
+    if (e instanceof EdgeFunctionError) throw new AeroDataBoxError(e.message, e.status);
+    throw e;
   }
+  if (!Array.isArray(flights)) return [];
 
-  if (res.status === 204 || res.status === 404) return [];
-  if (res.status === 401 || res.status === 403) {
-    throw new AeroDataBoxError('AeroDataBox rejected the API key.', res.status);
-  }
-  if (res.status === 429) {
-    throw new AeroDataBoxError('Rate limit hit on AeroDataBox — try again later.', 429);
-  }
-  if (!res.ok) {
-    throw new AeroDataBoxError(`AeroDataBox error (${res.status}).`, res.status);
-  }
-
-  const json = (await res.json()) as RawFlight[];
-  if (!Array.isArray(json)) return [];
-
-  return json.map(mapFlight).filter((f): f is FlightLookupResult => f !== null);
+  return flights.map(mapFlight).filter((f): f is FlightLookupResult => f !== null);
 }
